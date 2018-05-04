@@ -5,6 +5,7 @@ using System.Linq;
 using BattleTech;
 using System.Reflection;
 using Harmony;
+using System.Diagnostics;
 
 namespace BattleTechModLoader
 {
@@ -39,12 +40,12 @@ namespace BattleTechModLoader
                     {
                         var entryMethod = type.GetMethod(methodName, bFlags);
                         entryMethod.Invoke(null, null);
-                        logWriter?.WriteLine("{0}: Found and called {1}.{2}", fileName, type.Name, entryMethod.Name);
+                        logWriter?.WriteLine("{0}: Found and called entry point: {1}.{2}", fileName, type.Name, entryMethod.Name);
                     }
                 }
                 else
                 {
-                    logWriter?.WriteLine("{0}: Failed to find specified entry point: {1}{2}", fileName, (typeName == null) ? typeName : "NotSpecified", methodName);
+                    logWriter?.WriteLine("{0}: Failed to find specified entry point: {1}.{2}", fileName, (typeName == null) ? typeName : "NotSpecified", methodName);
                 }
             }
             catch (Exception e)
@@ -58,6 +59,10 @@ namespace BattleTechModLoader
             ModDirectory = Path.Combine(Path.GetDirectoryName(VersionManifestUtilities.MANIFEST_FILEPATH), @"..\..\..\Mods\");
             LogPath = Path.Combine(ModDirectory, "BTModLoader.log");
 
+            // do some simple benchmarking
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            
             if (!Directory.Exists(ModDirectory))
                 Directory.CreateDirectory(ModDirectory);
 
@@ -118,6 +123,11 @@ namespace BattleTechModLoader
                         }
                     }
                 }
+
+                // do some simple benchmarking
+                sw.Stop();
+                logWriter.WriteLine();
+                logWriter.WriteLine("Took {0} seconds to load mods", sw.Elapsed.TotalSeconds);
             }
         }
     }
