@@ -14,7 +14,7 @@ namespace BattleTechModLoader
         public static string LogPath;
         public static string ModDirectory;
 
-        public static void LoadDLL(string path, StreamWriter logWriter = null, string methodName = "Init", string typeName = null, BindingFlags bFlags = BindingFlags.Public | BindingFlags.Static)
+        public static void LoadDLL(string path, StreamWriter logWriter = null, string methodName = "Init", string typeName = null, object[] prms = null, BindingFlags bFlags = BindingFlags.Public | BindingFlags.Static)
         {
             var fileName = Path.GetFileName(path);
             
@@ -39,8 +39,57 @@ namespace BattleTechModLoader
                     foreach (var type in types)
                     {
                         var entryMethod = type.GetMethod(methodName, bFlags);
-                        entryMethod.Invoke(null, null);
-                        logWriter?.WriteLine("{0}: Found and called entry point: {1}.{2}", fileName, type.Name, entryMethod.Name);
+                        var methodParams = entryMethod.GetParameters();
+
+                        if (methodParams.Length == 0)
+                        {
+                            logWriter?.WriteLine("{0}: Found and called entry point with void param: {1}.{2}", fileName, type.Name, entryMethod.Name);
+                            entryMethod.Invoke(null, null);
+                        }
+                        else
+                        {
+                            // match up the passed in params with the method's params, if they match, call the method
+                            if (prms != null && methodParams.Length == prms.Length)
+                            {
+                                bool paramsMatch = true;
+                                for (int i = 0; i < methodParams.Length; i++)
+                                {
+                                    if (prms[i] != null && prms[i].GetType() != methodParams[i].ParameterType)
+                                    {
+                                        paramsMatch = false;
+                                    }
+                                }
+
+                                if (paramsMatch)
+                                {
+                                    logWriter?.WriteLine("{0}: Found and called entry point with params: {1}.{2}", fileName, type.Name, entryMethod.Name);
+                                    entryMethod.Invoke(null, prms);
+                                    continue;
+                                }
+                            }
+                            
+                            logWriter?.WriteLine("{0}: Provided params don't match {1}.{2}", fileName, type.Name, entryMethod.Name);
+                            logWriter?.WriteLine("\tPassed in Params:");
+                            if (prms != null)
+                            {
+                                foreach (var prm in prms)
+                                {
+                                    logWriter?.WriteLine("\t\t{0}", prm.GetType());
+                                }
+                            }
+                            else
+                            {
+                                logWriter?.WriteLine("\t\tprms is null");
+                            }
+                            if (methodParams != null)
+                            {
+                                logWriter?.WriteLine("\tMethod Params:");
+                                foreach (var prm in methodParams)
+                                {
+                                    logWriter?.WriteLine("\t\t{0}", prm.ParameterType);
+                                }
+                            }
+                        }
                     }
                 }
                 else
