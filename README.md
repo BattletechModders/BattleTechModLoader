@@ -4,13 +4,15 @@ A simple mod loader and injector for HBS's BattleTech PC game.
 
 ***STILL IN ACTIVE DEVELOPMENT!***
 
-## Installing
+## Installing/Updating
 
-Download the zip, and extact the entire contents (the .exe and all of the .dlls) into your `\BATTLETECH\BattleTech_Data\Managed\` folder. Run `BattleTechModLoaderInjector.exe`, it'll pop open a console window and run through the process of modifying `Assembly-CSharp.dll`, including making a backup into `Assembly-CSharp.dll.orig`.
+Download the zip, and extact the entire contents (the .exe and all of the .dlls) into your `\BATTLETECH\BattleTech_Data\Managed\` folder. Run `BattleTechModLoaderInjector.exe`, it'll pop open a console window and run through the process of modifying `Assembly-CSharp.dll`, including making a backup into `Assembly-CSharp.dll.orig`. Don't worry if the assembly is slightly smaller than it started, it will still work, unless the console window shows an exception during the writing process. If this happens, just delete it and rename the backup to have your original file back.
 
 If the game patches or somehow replaces `Assembly-CSharp.dll`, running the injector will patch it again. Since the mod loader and the injector are very simple, it should be pretty resistant to updates changing the assembly.
 
-*Note: Running the injector on an already injected game won't bork anything, as it checks to see if the assembly has already been patched.*
+Updates to BattleTechModLoader itself will almost certainly not require you to re-inject an already injected assembly. Simply replace all of the included files.
+
+*Note: Running the injector on an already injected game won't bork anything, as it checks to see if the assembly has already been injected.*
 
 ## Note For Modders
 
