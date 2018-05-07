@@ -50,7 +50,7 @@ namespace BattleTechModLoader
             Console.ReadKey();
         }
 
-        public static void Backup(string filePath, string backupFilePath)
+        static void Backup(string filePath, string backupFilePath)
         {
             if (File.Exists(backupFilePath))
                 File.Delete(backupFilePath);
@@ -60,30 +60,28 @@ namespace BattleTechModLoader
             Console.WriteLine("{0} backed up to {1}", Path.GetFileName(filePath), Path.GetFileName(backupFilePath));
         }
 
-        public static void Inject(string hookFilePath, string hookType, string hookMethod, string injectFilePath, string injectType, string injectMethod)
+        static void Inject(string hookFilePath, string hookType, string hookMethod, string injectFilePath, string injectType, string injectMethod)
         {
             Console.WriteLine("Injecting {0} with {1}.{2} at {3}.{4}", Path.GetFileName(hookFilePath), injectType, injectMethod, hookType, hookMethod);
 
             using (var game = ModuleDefinition.ReadModule(hookFilePath, new ReaderParameters { ReadWrite = true }))
+            using (var injected = ModuleDefinition.ReadModule(injectFilePath))
             {
-                using (var injected = ModuleDefinition.ReadModule(injectFilePath))
-                {
-                    // get the methods that we're hooking and injecting
-                    var injectedMethod = injected.GetType(injectType).Methods.Single(x => x.Name == injectMethod);
-                    var hookedMethod = game.GetType(hookType).Methods.First(x => x.Name == hookMethod);
+                // get the methods that we're hooking and injecting
+                var injectedMethod = injected.GetType(injectType).Methods.Single(x => x.Name == injectMethod);
+                var hookedMethod = game.GetType(hookType).Methods.First(x => x.Name == hookMethod);
 
-                    // inject our method into the beginning of the hooks method
-                    hookedMethod.Body.GetILProcessor().InsertBefore(hookedMethod.Body.Instructions[0], Instruction.Create(OpCodes.Call, game.ImportReference(injectedMethod)));
+                // inject our method into the beginning of the hooks method
+                hookedMethod.Body.GetILProcessor().InsertBefore(hookedMethod.Body.Instructions[0], Instruction.Create(OpCodes.Call, game.ImportReference(injectedMethod)));
 
-                    // save the modified assembly
-                    Console.WriteLine("Writing back to {0}...", Path.GetFileName(hookFilePath));
-                    game.Write();
-                    Console.WriteLine("Injection complete!");
-                }
+                // save the modified assembly
+                Console.WriteLine("Writing back to {0}...", Path.GetFileName(hookFilePath));
+                game.Write();
+                Console.WriteLine("Injection complete!");
             }
         }
 
-        public static bool IsInjected(string hookFilePath, string hookType, string hookMethod, string injectFilePath, string injectType, string injectMethod)
+        static bool IsInjected(string hookFilePath, string hookType, string hookMethod, string injectFilePath, string injectType, string injectMethod)
         {
             using (var game = ModuleDefinition.ReadModule(hookFilePath))
             {

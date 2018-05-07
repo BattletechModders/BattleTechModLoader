@@ -11,10 +11,25 @@ namespace BattleTechModLoader
 {
     public static class BTModLoader
     {
-        public static string LogPath;
-        public static string ModDirectory;
+        internal static string modDirectory;
+        
+        // logging
+        internal static string logPath;
+        internal static void Log(string message, params object[] formatObjects)
+        {
+            if (logPath != null && logPath != "")
+                using (var logWriter = File.AppendText(logPath))
+                    logWriter.WriteLine(message, formatObjects);
+        }
 
-        public static void LoadDLL(string path, StreamWriter logWriter = null, string methodName = "Init", string typeName = null, object[] prms = null, BindingFlags bFlags = BindingFlags.Public | BindingFlags.Static)
+        internal static void LogWithDate(string message, params object[] formatObjects)
+        {
+            if (logPath != null && logPath != "")
+                using (var logWriter = File.AppendText(logPath))
+                    logWriter.WriteLine(DateTime.Now.ToLongTimeString() + " - " + message, formatObjects);
+        }
+
+        public static void LoadDLL(string path, string methodName = "Init", string typeName = null, object[] prms = null, BindingFlags bFlags = BindingFlags.Public | BindingFlags.Static)
         {
             var fileName = Path.GetFileName(path);
             
@@ -25,159 +40,157 @@ namespace BattleTechModLoader
 
                 // find the type/s with our entry point/s
                 if (typeName == null)
-                {
                     types.AddRange(assembly.GetTypes().Where(x => x.GetMethod(methodName, bFlags) != null));
-                }
                 else
-                {
                     types.Add(assembly.GetType(typeName));
+
+                // run each entry point
+                if (types.Count == 0)
+                {
+                    LogWithDate("{0}: Failed to find specified entry point: {1}.{2}", fileName, typeName ?? "NotSpecified", methodName);
+                    return;
                 }
 
-                if (types.Count > 0)
+                foreach (var type in types)
                 {
-                    // run each entry point
-                    foreach (var type in types)
-                    {
-                        var entryMethod = type.GetMethod(methodName, bFlags);
-                        var methodParams = entryMethod.GetParameters();
+                    var entryMethod = type.GetMethod(methodName, bFlags);
+                    var methodParams = entryMethod.GetParameters();
 
-                        if (methodParams.Length == 0)
+                    if (methodParams.Length == 0)
+                    {
+                        LogWithDate("{0}: Found and called entry point with void param: {1}.{2}", fileName, type.Name, entryMethod.Name);
+                        entryMethod.Invoke(null, null);
+                    }
+                    else
+                    {
+                        // match up the passed in params with the method's params, if they match, call the method
+                        if (prms != null && methodParams.Length == prms.Length)
                         {
-                            logWriter?.WriteLine("{0}: Found and called entry point with void param: {1}.{2}", fileName, type.Name, entryMethod.Name);
-                            entryMethod.Invoke(null, null);
+                            bool paramsMatch = true;
+                            for (int i = 0; i < methodParams.Length; i++)
+                            {
+                                if (prms[i] != null && prms[i].GetType() != methodParams[i].ParameterType)
+                                {
+                                    paramsMatch = false;
+                                }
+                            }
+
+                            if (paramsMatch)
+                            {
+                                LogWithDate("{0}: Found and called entry point with params: {1}.{2}", fileName, type.Name, entryMethod.Name);
+                                entryMethod.Invoke(null, prms);
+                                continue;
+                            }
+                        }
+
+                        // diagnosing problems of this type (haha it's a pun) is pretty hard
+                        LogWithDate("{0}: Provided params don't match {1}.{2}", fileName, type.Name, entryMethod.Name);
+                        Log("\tPassed in Params:");
+                        if (prms != null)
+                        {
+                            foreach (var prm in prms)
+                                Log("\t\t{0}", prm.GetType());
                         }
                         else
                         {
-                            // match up the passed in params with the method's params, if they match, call the method
-                            if (prms != null && methodParams.Length == prms.Length)
-                            {
-                                bool paramsMatch = true;
-                                for (int i = 0; i < methodParams.Length; i++)
-                                {
-                                    if (prms[i] != null && prms[i].GetType() != methodParams[i].ParameterType)
-                                    {
-                                        paramsMatch = false;
-                                    }
-                                }
+                            Log("\t\tprms is null");
+                        }
 
-                                if (paramsMatch)
-                                {
-                                    logWriter?.WriteLine("{0}: Found and called entry point with params: {1}.{2}", fileName, type.Name, entryMethod.Name);
-                                    entryMethod.Invoke(null, prms);
-                                    continue;
-                                }
-                            }
-                            
-                            logWriter?.WriteLine("{0}: Provided params don't match {1}.{2}", fileName, type.Name, entryMethod.Name);
-                            logWriter?.WriteLine("\tPassed in Params:");
-                            if (prms != null)
-                            {
-                                foreach (var prm in prms)
-                                {
-                                    logWriter?.WriteLine("\t\t{0}", prm.GetType());
-                                }
-                            }
-                            else
-                            {
-                                logWriter?.WriteLine("\t\tprms is null");
-                            }
-                            if (methodParams != null)
-                            {
-                                logWriter?.WriteLine("\tMethod Params:");
-                                foreach (var prm in methodParams)
-                                {
-                                    logWriter?.WriteLine("\t\t{0}", prm.ParameterType);
-                                }
-                            }
+                        if (methodParams != null)
+                        {
+                            Log("\tMethod Params:");
+
+                            foreach (var prm in methodParams)
+                                Log("\t\t{0}", prm.ParameterType);
                         }
                     }
-                }
-                else
-                {
-                    logWriter?.WriteLine("{0}: Failed to find specified entry point: {1}.{2}", fileName, (typeName == null) ? typeName : "NotSpecified", methodName);
                 }
             }
             catch (Exception e)
             {
-                logWriter?.WriteLine("{0}: While loading a dll, an exception occured: {1}", fileName, e.ToString());
+               LogWithDate("{0}: While loading a dll, an exception occured:\n{1}", fileName, e.ToString());
             }
         }
 
         public static void Init()
         {
-            ModDirectory = Path.Combine(Path.GetDirectoryName(VersionManifestUtilities.MANIFEST_FILEPATH), @"..\..\..\Mods\");
-            LogPath = Path.Combine(ModDirectory, "BTModLoader.log");
+            modDirectory = Path.Combine(Path.GetDirectoryName(VersionManifestUtilities.MANIFEST_FILEPATH), @"..\..\..\Mods\");
+            logPath = Path.Combine(modDirectory, "BTModLoader.log");
 
             // do some simple benchmarking
             Stopwatch sw = new Stopwatch();
             sw.Start();
             
-            if (!Directory.Exists(ModDirectory))
-                Directory.CreateDirectory(ModDirectory);
+            if (!Directory.Exists(modDirectory))
+                Directory.CreateDirectory(modDirectory);
+
+            // create log file, overwritting if it's already there
+            using (var logWriter = File.CreateText(logPath))
+                logWriter.WriteLine("BTModLoader -- {0}", DateTime.Now);
 
             var harmony = HarmonyInstance.Create("io.github.mpstark.BTModLoader");
             
-            using (var logWriter = File.CreateText(LogPath))
+            // get all dll paths
+            var dllPaths = Directory.GetFiles(modDirectory).Where(x => Path.GetExtension(x).ToLower() == ".dll");
+
+            if (dllPaths.Count() == 0)
             {
-                logWriter.WriteLine("BTModLoader -- {0}", DateTime.Now.ToString());
-
-                var dllPaths = new DirectoryInfo(ModDirectory).GetFiles("*.dll", SearchOption.TopDirectoryOnly);
-                if (dllPaths.Length == 0)
-                {
-                    logWriter.WriteLine(@"No .dlls loaded. DLLs must be placed in the root of the folder \BATTLETECH\Mods\.");
-                }
-                else
-                {
-                    foreach (var dllFileInfo in dllPaths)
-                    {
-                        logWriter.WriteLine("Found DLL: {0}", dllFileInfo.Name);
-                        LoadDLL(dllFileInfo.ToString(), logWriter);
-                    }
-                }
-                
-                // print out harmony summary
-                logWriter.WriteLine("");
-                logWriter.WriteLine("Harmony Patched Methods (after mod loader startup):");
-                var patchedMethods = harmony.GetPatchedMethods();
-                foreach (var method in patchedMethods)
-                {
-                    var info = harmony.IsPatched(method);
-
-                    if (info != null)
-                    {
-                        logWriter.WriteLine("{0}.{1}.{2}:", method.ReflectedType.Namespace, method.ReflectedType.Name, method.Name);
-
-                        // prefixes
-                        if (info.Prefixes.Count != 0)
-                            logWriter.WriteLine("\tPrefixes:");
-                        foreach (var patch in info.Prefixes)
-                        {
-                            logWriter.WriteLine("\t\t{0}", patch.owner);
-                        }
-
-                        // transpilers
-                        if (info.Transpilers.Count != 0)
-                            logWriter.WriteLine("\tTranspilers:");
-                        foreach (var patch in info.Transpilers)
-                        {
-                            logWriter.WriteLine("\t\t{0}", patch.owner);
-                        }
-
-                        // postfixes
-                        if (info.Postfixes.Count != 0)
-                            logWriter.WriteLine("\tPostfixes:");
-                        foreach (var patch in info.Postfixes)
-                        {
-                            logWriter.WriteLine("\t\t{0}", patch.owner);
-                        }
-                    }
-                }
-
-                // do some simple benchmarking
-                sw.Stop();
-                logWriter.WriteLine();
-                logWriter.WriteLine("Took {0} seconds to load mods", sw.Elapsed.TotalSeconds);
+                Log(@"No .dlls loaded. DLLs must be placed in the root of the folder \BATTLETECH\Mods\.");
+                return;
             }
+
+            // load the dlls
+            foreach (var dllPath in dllPaths)
+            {
+                Log("Found DLL: {0}", Path.GetFileName(dllPath));
+                LoadDLL(dllPath);
+            }
+            
+            // do some simple benchmarking
+            sw.Stop();
+            Log("");
+            Log("Took {0} seconds to load mods", sw.Elapsed.TotalSeconds);
+
+            // print out harmony summary
+            var patchedMethods = harmony.GetPatchedMethods();
+            if (patchedMethods.Count() == 0)
+            {
+                Log("No Harmony Patches loaded.");
+                return;
+            }
+
+            Log("");
+            Log("Harmony Patched Methods (after mod loader startup):");
+
+            foreach (var method in patchedMethods)
+            {
+                var info = harmony.IsPatched(method);
+
+                if (info != null)
+                {
+                    Log("{0}.{1}.{2}:", method.ReflectedType.Namespace, method.ReflectedType.Name, method.Name);
+
+                    // prefixes
+                    if (info.Prefixes.Count != 0)
+                        Log("\tPrefixes:");
+                    foreach (var patch in info.Prefixes)
+                        Log("\t\t{0}", patch.owner);
+
+                    // transpilers
+                    if (info.Transpilers.Count != 0)
+                        Log("\tTranspilers:");
+                    foreach (var patch in info.Transpilers)
+                        Log("\t\t{0}", patch.owner);
+
+                    // postfixes
+                    if (info.Postfixes.Count != 0)
+                        Log("\tPostfixes:");
+                    foreach (var patch in info.Postfixes)
+                        Log("\t\t{0}", patch.owner);
+                }
+            }
+
+            Log("");
         }
     }
 }
