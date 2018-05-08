@@ -7,7 +7,6 @@ namespace BattleTechModLoader
     internal static class Logger
     {
         // logging
-        // ReSharper disable once MemberCanBePrivate.Global
         internal static string LogPath { get; set; }
 
         [StringFormatMethod("message")]

@@ -14,17 +14,17 @@ namespace BattleTechModLoader
     using static Logger;
 
     [UsedImplicitly]
-    // ReSharper disable once InconsistentNaming
     public static class BTModLoader
     {
+        private const BindingFlags PUBLIC_STATIC_BINDING_FLAGS = BindingFlags.Public | BindingFlags.Static;
+
         [UsedImplicitly]
         public static string ModDirectory { get; private set; }
 
 
-        // ReSharper disable once InconsistentNaming
         [UsedImplicitly]
         public static void LoadDLL(string path, string methodName = "Init", string typeName = null,
-            object[] prms = null, BindingFlags bFlags = BindingFlags.Public | BindingFlags.Static)
+            object[] prms = null, BindingFlags bFlags = PUBLIC_STATIC_BINDING_FLAGS)
         {
             var fileName = Path.GetFileName(path);
 
@@ -33,22 +33,19 @@ namespace BattleTechModLoader
                 var assembly = Assembly.LoadFrom(path);
                 var types = new List<Type>();
 
-                //assembly.EntryPoint as default?
-
                 // find the type/s with our entry point/s
                 if (typeName == null)
                     types.AddRange(assembly.GetTypes().Where(x => x.GetMethod(methodName, bFlags) != null));
                 else
                     types.Add(assembly.GetType(typeName));
 
-                // run each entry point
                 if (types.Count == 0)
                 {
-                    LogWithDate(
-                        $"{fileName}: Failed to find specified entry point: {typeName ?? "NotSpecified"}.{methodName}");
+                    LogWithDate($"{fileName}: Failed to find specified entry point: {typeName ?? "NotSpecified"}.{methodName}");
                     return;
                 }
 
+                // run each entry point
                 foreach (var type in types)
                 {
                     var entryMethod = type.GetMethod(methodName, bFlags);
@@ -58,8 +55,7 @@ namespace BattleTechModLoader
 
                     if (methodParams.Length == 0)
                     {
-                        LogWithDate("{0}: Found and called entry point with void param: {1}.{2}", fileName, type.Name,
-                            entryMethod.Name);
+                        LogWithDate($"{fileName}: Found and called entry point with void param: {type.Name}.{entryMethod.Name}");
                         entryMethod.Invoke(null, null);
                     }
                     else
@@ -74,19 +70,18 @@ namespace BattleTechModLoader
 
                             if (paramsMatch)
                             {
-                                LogWithDate("{0}: Found and called entry point with params: {1}.{2}", fileName,
-                                    type.Name, entryMethod.Name);
+                                LogWithDate($"{fileName}: Found and called entry point with params: {type.Name}.{entryMethod.Name}");
                                 entryMethod.Invoke(null, prms);
                                 continue;
                             }
                         }
 
                         // diagnosing problems of this type (haha it's a pun) is pretty hard
-                        LogWithDate("{0}: Provided params don't match {1}.{2}", fileName, type.Name, entryMethod.Name);
+                        LogWithDate($"{fileName}: Provided params don't match {type.Name}.{entryMethod.Name}");
                         Log("\tPassed in Params:");
                         if (prms != null)
                             foreach (var prm in prms)
-                                Log("\t\t{0}", prm.GetType());
+                                Log($"\t\t{prm.GetType()}");
                         else
                             Log("\t\tprms is null");
 
@@ -97,7 +92,7 @@ namespace BattleTechModLoader
                             Log("\tMethod Params:");
 
                             foreach (var prm in methodParams)
-                                Log("\t\t{0}", prm.ParameterType);
+                                Log($"\t\t{prm.ParameterType}");
                         }
                     }
                 }
@@ -113,7 +108,7 @@ namespace BattleTechModLoader
         {
             var manifestDirectory = Path.GetDirectoryName(VersionManifestUtilities.MANIFEST_FILEPATH)
                 ?? throw new InvalidOperationException("Manifest path is invalid.");
-            ModDirectory = Path.Combine(manifestDirectory, @"..\..\..\Mods\");
+            ModDirectory = Path.GetFullPath(Path.Combine(manifestDirectory, @"..\..\..\Mods\"));
             LogPath = Path.Combine(ModDirectory, "BTModLoader.log");
 
             // do some simple benchmarking
@@ -126,7 +121,7 @@ namespace BattleTechModLoader
             // create log file, overwritting if it's already there
             using (var logWriter = File.CreateText(LogPath))
             {
-                logWriter.WriteLine("BTModLoader -- {0}", DateTime.Now);
+                logWriter.WriteLine($"BTModLoader -- {DateTime.Now}");
             }
 
             var harmony = HarmonyInstance.Create("io.github.mpstark.BTModLoader");
@@ -144,14 +139,14 @@ namespace BattleTechModLoader
             // load the dlls
             foreach (var dllPath in dllPaths)
             {
-                Log("Found DLL: {0}", Path.GetFileName(dllPath));
+                Log($"Found DLL: {Path.GetFileName(dllPath)}");
                 LoadDLL(dllPath);
             }
 
             // do some simple benchmarking
             sw.Stop();
             Log("");
-            Log("Took {0} seconds to load mods", sw.Elapsed.TotalSeconds);
+            Log($"Took {sw.Elapsed.TotalSeconds} seconds to load mods");
 
             // print out harmony summary
             var patchedMethods = harmony.GetPatchedMethods().ToArray();
@@ -171,25 +166,25 @@ namespace BattleTechModLoader
                 if (info == null) continue;
 
                 Assert.IsNotNull(method.ReflectedType, "method.ReflectedType != null");
-                Log("{0}.{1}:", method.ReflectedType.FullName, method.Name);
+                Log($"{method.ReflectedType.FullName}.{method.Name}:");
 
                 // prefixes
                 if (info.Prefixes.Count != 0)
                     Log("\tPrefixes:");
                 foreach (var patch in info.Prefixes)
-                    Log("\t\t{0}", patch.owner);
+                    Log($"\t\t{patch.owner}");
 
                 // transpilers
                 if (info.Transpilers.Count != 0)
                     Log("\tTranspilers:");
                 foreach (var patch in info.Transpilers)
-                    Log("\t\t{0}", patch.owner);
+                    Log($"\t\t{patch.owner}");
 
                 // postfixes
                 if (info.Postfixes.Count != 0)
                     Log("\tPostfixes:");
                 foreach (var patch in info.Postfixes)
-                    Log("\t\t{0}", patch.owner);
+                    Log($"\t\t{patch.owner}");
             }
 
             Log("");

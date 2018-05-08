@@ -8,45 +8,39 @@ namespace BattleTechModLoader
 {
     using static Console;
 
-    // ReSharper disable once InconsistentNaming
     internal static class BTMLInjector
     {
-        private const string InjectedDllFileName = "BattleTechModLoader.dll";
-        private const string InjectType = "BattleTechModLoader.BTModLoader";
-        private const string InjectMethod = "Init";
+        private const string INJECTED_DLL_FILE_NAME = "BattleTechModLoader.dll";
+        private const string INJECT_TYPE = "BattleTechModLoader.BTModLoader";
+        private const string INJECT_METHOD = "Init";
 
-        private const string GameDllFileName = "Assembly-CSharp.dll";
-        private const string BackupExt = ".orig";
+        private const string GAME_DLL_FILE_NAME = "Assembly-CSharp.dll";
+        private const string BACKUP_EXT = ".orig";
 
-        private const string HookType = "BattleTech.GameInstance";
-        private const string HookMethod = ".ctor";
+        private const string HOOK_TYPE = "BattleTech.GameInstance";
+        private const string HOOK_METHOD = ".ctor";
 
-        /// <summary>
-        /// Entry point for the BTML Injector CLI application.
-        /// </summary>
-        /// <param name="args">System provided arguments.</param>
-        // ReSharper disable once UnusedParameter.Local
-        private static int Main(string[] args)
+        private static int Main()
         {
             var directory = Directory.GetCurrentDirectory();
 
-            var gameDllPath = Path.Combine(directory, GameDllFileName);
-            var gameDllBackupPath = Path.Combine(directory, GameDllFileName + BackupExt);
-            var injectDllPath = Path.Combine(directory, InjectedDllFileName);
+            var gameDllPath = Path.Combine(directory, GAME_DLL_FILE_NAME);
+            var gameDllBackupPath = Path.Combine(directory, GAME_DLL_FILE_NAME + BACKUP_EXT);
+            var injectDllPath = Path.Combine(directory, INJECTED_DLL_FILE_NAME);
 
             WriteLine("BattleTechModLoader Injector");
             WriteLine("----------------------------");
 
             try
             {
-                if (!IsInjected(gameDllPath, HookType, HookMethod, injectDllPath, InjectType, InjectMethod))
+                if (!IsInjected(gameDllPath, HOOK_TYPE, HOOK_METHOD, injectDllPath, INJECT_TYPE, INJECT_METHOD))
                 {
                     Backup(gameDllPath, gameDllBackupPath);
-                    Inject(gameDllPath, HookType, HookMethod, injectDllPath, InjectType, InjectMethod);
+                    Inject(gameDllPath, HOOK_TYPE, HOOK_METHOD, injectDllPath, INJECT_TYPE, INJECT_METHOD);
                 }
                 else
                 {
-                    WriteLine($"{GameDllFileName} already injected with {InjectType}.{InjectMethod}.");
+                    WriteLine($"{GAME_DLL_FILE_NAME} already injected with {INJECT_TYPE}.{INJECT_METHOD}.");
                 }
             }
             catch (Exception e)
@@ -78,8 +72,7 @@ namespace BattleTechModLoader
         private static void Inject(string hookFilePath, string hookType, string hookMethod, string injectFilePath,
             string injectType, string injectMethod)
         {
-            WriteLine(
-                $"Injecting {Path.GetFileName(hookFilePath)} with {injectType}.{injectMethod} at {hookType}.{hookMethod}");
+            WriteLine($"Injecting {Path.GetFileName(hookFilePath)} with {injectType}.{injectMethod} at {hookType}.{hookMethod}");
 
             using (var game = ModuleDefinition.ReadModule(hookFilePath, new ReaderParameters {ReadWrite = true}))
             using (var injected = ModuleDefinition.ReadModule(injectFilePath))
@@ -99,7 +92,7 @@ namespace BattleTechModLoader
             }
         }
 
-        // ReSharper disable once UnusedParameter.Local
+        // ReSharper disable once UnusedParameter.Local // injectFilePath
         private static bool IsInjected(string hookFilePath, string hookType, string hookMethod, string injectFilePath,
             string injectType, string injectMethod)
         {
