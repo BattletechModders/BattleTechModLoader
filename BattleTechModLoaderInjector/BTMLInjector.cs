@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using Mono.Cecil;
@@ -20,7 +20,7 @@ namespace BattleTechModLoader
         private const string HOOK_TYPE = "BattleTech.GameInstance";
         private const string HOOK_METHOD = ".ctor";
 
-        private static int Main()
+        private static int Main(string[] args)
         {
             var directory = Directory.GetCurrentDirectory();
 
@@ -31,6 +31,7 @@ namespace BattleTechModLoader
             WriteLine("BattleTechModLoader Injector");
             WriteLine("----------------------------");
 
+            var returnCode = 0;
             try
             {
                 if (!IsInjected(gameDllPath, HOOK_TYPE, HOOK_METHOD, injectDllPath, INJECT_TYPE, INJECT_METHOD))
@@ -46,17 +47,18 @@ namespace BattleTechModLoader
             catch (Exception e)
             {
                 WriteLine($"An exception occured: {e}");
+                returnCode = 1;
             }
 
             // if executed from e.g. a setup or test tool, don't prompt
             // ReSharper disable once InvertIf
-            if (Environment.UserInteractive)
+            if (args.Length == 0 || args[0] != "/nokeypress")
             {
                 WriteLine("Press any key to continue.");
                 ReadKey();
             }
 
-            return 0;
+            return returnCode;
         }
 
         private static void Backup(string filePath, string backupFilePath)
