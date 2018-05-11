@@ -108,7 +108,10 @@ namespace BattleTechModLoader
         {
             var manifestDirectory = Path.GetDirectoryName(VersionManifestUtilities.MANIFEST_FILEPATH)
                 ?? throw new InvalidOperationException("Manifest path is invalid.");
-            ModDirectory = Path.GetFullPath(Path.Combine(manifestDirectory, @"..\..\..\Mods\"));
+            ModDirectory = Path.GetFullPath(
+                Path.Combine(manifestDirectory, 
+                    Path.Combine(Path.Combine(Path.Combine(
+                                 "..", "..") , ".."), "Mods")));
             LogPath = Path.Combine(ModDirectory, "BTModLoader.log");
 
             // do some simple benchmarking
