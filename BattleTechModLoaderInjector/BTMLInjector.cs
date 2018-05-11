@@ -34,14 +34,29 @@ namespace BattleTechModLoader
             var returnCode = 0;
             try
             {
-                if (!IsInjected(gameDllPath, HOOK_TYPE, HOOK_METHOD, injectDllPath, INJECT_TYPE, INJECT_METHOD))
+                var injected = IsInjected(gameDllPath, HOOK_TYPE, HOOK_METHOD, injectDllPath, INJECT_TYPE, INJECT_METHOD);
+                if (args.Contains("/restore"))
                 {
-                    Backup(gameDllPath, gameDllBackupPath);
-                    Inject(gameDllPath, HOOK_TYPE, HOOK_METHOD, injectDllPath, INJECT_TYPE, INJECT_METHOD);
+                    if (injected)
+                    {
+                        Restore(gameDllPath, gameDllBackupPath);
+                    }
+                    else
+                    {
+                        WriteLine($"{GAME_DLL_FILE_NAME} already restored.");
+                    }
                 }
                 else
                 {
-                    WriteLine($"{GAME_DLL_FILE_NAME} already injected with {INJECT_TYPE}.{INJECT_METHOD}.");
+                    if (injected)
+                    {
+                        WriteLine($"{GAME_DLL_FILE_NAME} already injected with {INJECT_TYPE}.{INJECT_METHOD}.");
+                    }
+                    else
+                    {
+                        Backup(gameDllPath, gameDllBackupPath);
+                        Inject(gameDllPath, HOOK_TYPE, HOOK_METHOD, injectDllPath, INJECT_TYPE, INJECT_METHOD);
+                    }
                 }
             }
             catch (Exception e)
@@ -52,7 +67,7 @@ namespace BattleTechModLoader
 
             // if executed from e.g. a setup or test tool, don't prompt
             // ReSharper disable once InvertIf
-            if (args.Length == 0 || args[0] != "/nokeypress")
+            if (!args.Contains("/nokeypress"))
             {
                 WriteLine("Press any key to continue.");
                 ReadKey();
@@ -63,12 +78,16 @@ namespace BattleTechModLoader
 
         private static void Backup(string filePath, string backupFilePath)
         {
-            if (File.Exists(backupFilePath))
-                File.Delete(backupFilePath);
-
-            File.Copy(filePath, backupFilePath);
+            File.Copy(filePath, backupFilePath, true);
 
             WriteLine($"{Path.GetFileName(filePath)} backed up to {Path.GetFileName(backupFilePath)}");
+        }
+
+        private static void Restore(string filePath, string backupFilePath)
+        {
+            File.Copy(backupFilePath, filePath, true);
+
+            WriteLine($"{Path.GetFileName(backupFilePath)} restored to {Path.GetFileName(filePath)}");
         }
 
         private static void Inject(string hookFilePath, string hookType, string hookMethod, string injectFilePath,
