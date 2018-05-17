@@ -6,6 +6,8 @@ A simple mod loader and injector for HBS's BattleTech PC game.
 
 ## Installing/Updating
 
+[A step-by-step guide to installing BTML + ModTek + ModTek mods.](https://github.com/Mpstark/ModTek/wiki/The-Drop-Dead-Simple-Guide-to-Installing-BTML-&-ModTek-&-ModTek-mods)
+
 Download the zip, and extact the entire contents (the .exe and all of the .dlls) into your `\BATTLETECH\BattleTech_Data\Managed\` folder. Run `BattleTechModLoaderInjector.exe`, it'll pop open a console window and run through the process of modifying `Assembly-CSharp.dll`, including making a backup into `Assembly-CSharp.dll.orig`. Don't worry if the assembly is slightly smaller than it started, it will still work, unless the console window shows an exception during the writing process. If this happens, just delete it and rename the backup to have your original file back.
 
 If the game patches or somehow replaces `Assembly-CSharp.dll`, running the injector will patch it again. Since the mod loader and the injector are very simple, it should be pretty resistant to updates changing the assembly.
