@@ -2,8 +2,6 @@
 
 A simple mod loader and injector for HBS's BattleTech PC game.
 
-***STILL IN ACTIVE DEVELOPMENT!***
-
 ## Installing/Updating
 
 [A step-by-step guide to installing BTML + ModTek + ModTek mods.](https://github.com/Mpstark/ModTek/wiki/The-Drop-Dead-Simple-Guide-to-Installing-BTML-&-ModTek-&-ModTek-mods)
