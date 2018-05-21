@@ -173,7 +173,7 @@ namespace BattleTechModLoader
 
             foreach (var method in patchedMethods)
             {
-                var info = harmony.IsPatched(method);
+                var info = harmony.GetPatchInfo(method);
 
                 if (info == null) continue;
                 
