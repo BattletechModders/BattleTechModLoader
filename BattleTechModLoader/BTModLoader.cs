@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -7,7 +7,6 @@ using System.Reflection;
 using BattleTech;
 using Harmony;
 using JetBrains.Annotations;
-using UnityEngine.Assertions;
 
 namespace BattleTechModLoader
 {
@@ -20,8 +19,7 @@ namespace BattleTechModLoader
 
         [UsedImplicitly]
         public static string ModDirectory { get; private set; }
-
-
+        
         [UsedImplicitly]
         public static void LoadDLL(string path, string methodName = "Init", string typeName = null,
             object[] prms = null, BindingFlags bFlags = PUBLIC_STATIC_BINDING_FLAGS)
@@ -35,9 +33,13 @@ namespace BattleTechModLoader
 
                 // find the type/s with our entry point/s
                 if (typeName == null)
+                {
                     types.AddRange(assembly.GetTypes().Where(x => x.GetMethod(methodName, bFlags) != null));
+                }
                 else
+                {
                     types.Add(assembly.GetType(typeName));
+                }
 
                 if (types.Count == 0)
                 {
@@ -49,8 +51,6 @@ namespace BattleTechModLoader
                 foreach (var type in types)
                 {
                     var entryMethod = type.GetMethod(methodName, bFlags);
-                    //Assert.IsNotNull(entryMethod, nameof(entryMethod) + " != null");
-                    Assert.IsNotNull(entryMethod, nameof(entryMethod) + " != null");
                     var methodParams = entryMethod.GetParameters();
 
                     if (methodParams.Length == 0)
@@ -65,8 +65,12 @@ namespace BattleTechModLoader
                         {
                             var paramsMatch = true;
                             for (var i = 0; i < methodParams.Length; i++)
+                            {
                                 if (prms[i] != null && prms[i].GetType() != methodParams[i].ParameterType)
+                                {
                                     paramsMatch = false;
+                                }
+                            }
 
                             if (paramsMatch)
                             {
@@ -80,19 +84,23 @@ namespace BattleTechModLoader
                         LogWithDate($"{fileName}: Provided params don't match {type.Name}.{entryMethod.Name}");
                         Log("\tPassed in Params:");
                         if (prms != null)
-                            foreach (var prm in prms)
-                                Log($"\t\t{prm.GetType()}");
-                        else
-                            Log("\t\tprms is null");
-
-                        // TODO: confirm assertion
-                        Assert.IsNotNull(methodParams, "methodParams != null");
-                        //if (methodParams != null)
                         {
-                            Log("\tMethod Params:");
+                            foreach (var prm in prms)
+                            {
+                                Log($"\t\t{prm.GetType()}");
+                            }
+                        }
+                        else
+                        {
+                            Log("\t\tprms is null");
+                        }
 
-                            foreach (var prm in methodParams)
-                                Log($"\t\t{prm.ParameterType}");
+                        if (methodParams.Length == 0) continue;
+                        
+                        Log("\tMethod Params:");
+                        foreach (var prm in methodParams)
+                        {
+                            Log($"\t\t{prm.ParameterType}");
                         }
                     }
                 }
@@ -108,10 +116,12 @@ namespace BattleTechModLoader
         {
             var manifestDirectory = Path.GetDirectoryName(VersionManifestUtilities.MANIFEST_FILEPATH)
                 ?? throw new InvalidOperationException("Manifest path is invalid.");
+
             ModDirectory = Path.GetFullPath(
                 Path.Combine(manifestDirectory,
                     Path.Combine(Path.Combine(Path.Combine(
                                  "..", "..") , ".."), "Mods")));
+
             LogPath = Path.Combine(ModDirectory, "BTModLoader.log");
 
             // do some simple benchmarking
@@ -130,8 +140,7 @@ namespace BattleTechModLoader
             var harmony = HarmonyInstance.Create("io.github.mpstark.BTModLoader");
 
             // get all dll paths
-            var dllPaths = Directory.GetFiles(ModDirectory).Where(x => Path.GetExtension(x).ToLower() == ".dll")
-                .ToArray();
+            var dllPaths = Directory.GetFiles(ModDirectory).Where(x => Path.GetExtension(x).ToLower() == ".dll").ToArray();
 
             if (dllPaths.Length == 0)
             {
@@ -167,8 +176,7 @@ namespace BattleTechModLoader
                 var info = harmony.IsPatched(method);
 
                 if (info == null) continue;
-
-                Assert.IsNotNull(method.ReflectedType, "method.ReflectedType != null");
+                
                 Log($"{method.ReflectedType.FullName}.{method.Name}:");
 
                 // prefixes
