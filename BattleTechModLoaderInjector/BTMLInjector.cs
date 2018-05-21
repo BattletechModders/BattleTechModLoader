@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using Mono.Cecil;
@@ -20,7 +20,7 @@ namespace BattleTechModLoader
         private const string HOOK_TYPE = "BattleTech.GameInstance";
         private const string HOOK_METHOD = ".ctor";
 
-        private static int Main()
+        private static int Main(string[] args)
         {
             var directory = Directory.GetCurrentDirectory();
 
@@ -31,42 +31,63 @@ namespace BattleTechModLoader
             WriteLine("BattleTechModLoader Injector");
             WriteLine("----------------------------");
 
+            var returnCode = 0;
             try
             {
-                if (!IsInjected(gameDllPath, HOOK_TYPE, HOOK_METHOD, injectDllPath, INJECT_TYPE, INJECT_METHOD))
+                var injected = IsInjected(gameDllPath, HOOK_TYPE, HOOK_METHOD, injectDllPath, INJECT_TYPE, INJECT_METHOD);
+                if (args.Contains("/restore"))
                 {
-                    Backup(gameDllPath, gameDllBackupPath);
-                    Inject(gameDllPath, HOOK_TYPE, HOOK_METHOD, injectDllPath, INJECT_TYPE, INJECT_METHOD);
+                    if (injected)
+                    {
+                        Restore(gameDllPath, gameDllBackupPath);
+                    }
+                    else
+                    {
+                        WriteLine($"{GAME_DLL_FILE_NAME} already restored.");
+                    }
                 }
                 else
                 {
-                    WriteLine($"{GAME_DLL_FILE_NAME} already injected with {INJECT_TYPE}.{INJECT_METHOD}.");
+                    if (injected)
+                    {
+                        WriteLine($"{GAME_DLL_FILE_NAME} already injected with {INJECT_TYPE}.{INJECT_METHOD}.");
+                    }
+                    else
+                    {
+                        Backup(gameDllPath, gameDllBackupPath);
+                        Inject(gameDllPath, HOOK_TYPE, HOOK_METHOD, injectDllPath, INJECT_TYPE, INJECT_METHOD);
+                    }
                 }
             }
             catch (Exception e)
             {
                 WriteLine($"An exception occured: {e}");
+                returnCode = 1;
             }
 
             // if executed from e.g. a setup or test tool, don't prompt
             // ReSharper disable once InvertIf
-            if (Environment.UserInteractive)
+            if (!args.Contains("/nokeypress"))
             {
                 WriteLine("Press any key to continue.");
                 ReadKey();
             }
 
-            return 0;
+            return returnCode;
         }
 
         private static void Backup(string filePath, string backupFilePath)
         {
-            if (File.Exists(backupFilePath))
-                File.Delete(backupFilePath);
-
-            File.Copy(filePath, backupFilePath);
+            File.Copy(filePath, backupFilePath, true);
 
             WriteLine($"{Path.GetFileName(filePath)} backed up to {Path.GetFileName(backupFilePath)}");
+        }
+
+        private static void Restore(string filePath, string backupFilePath)
+        {
+            File.Copy(backupFilePath, filePath, true);
+
+            WriteLine($"{Path.GetFileName(backupFilePath)} restored to {Path.GetFileName(filePath)}");
         }
 
         private static void Inject(string hookFilePath, string hookType, string hookMethod, string injectFilePath,
