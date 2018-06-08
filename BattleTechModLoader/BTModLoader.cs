@@ -6,21 +6,25 @@ using System.Linq;
 using System.Reflection;
 using BattleTech;
 using Harmony;
-using JetBrains.Annotations;
+
+// ReSharper disable UnusedMember.Global
+// ReSharper disable MemberCanBePrivate.Global
 
 namespace BattleTechModLoader
 {
     using static Logger;
 
-    [UsedImplicitly]
     public static class BTModLoader
     {
         private const BindingFlags PUBLIC_STATIC_BINDING_FLAGS = BindingFlags.Public | BindingFlags.Static;
+        private static readonly List<string> IGNORE_FILE_NAMES = new List<string>()
+        {
+            "0Harmony.dll",
+            "BattleTechModLoader.dll"
+        };
 
-        [UsedImplicitly]
         public static string ModDirectory { get; private set; }
-        
-        [UsedImplicitly]
+
         public static void LoadDLL(string path, string methodName = "Init", string typeName = null,
             object[] prms = null, BindingFlags bFlags = PUBLIC_STATIC_BINDING_FLAGS)
         {
@@ -51,11 +55,14 @@ namespace BattleTechModLoader
                 foreach (var type in types)
                 {
                     var entryMethod = type.GetMethod(methodName, bFlags);
-                    var methodParams = entryMethod.GetParameters();
+                    var methodParams = entryMethod?.GetParameters();
+
+                    if (methodParams == null)
+                        continue;
 
                     if (methodParams.Length == 0)
                     {
-                        LogWithDate($"{fileName}: Found and called entry point with void param: {type.Name}.{entryMethod.Name}");
+                        LogWithDate($"{fileName}: Found and called entry point \"{entryMethod}\" in type \"{type.FullName}\"");
                         entryMethod.Invoke(null, null);
                     }
                     else
@@ -74,7 +81,7 @@ namespace BattleTechModLoader
 
                             if (paramsMatch)
                             {
-                                LogWithDate($"{fileName}: Found and called entry point with params: {type.Name}.{entryMethod.Name}");
+                                LogWithDate($"{fileName}: Found and called entry point \"{entryMethod}\" in type \"{type.FullName}\"");
                                 entryMethod.Invoke(null, prms);
                                 continue;
                             }
@@ -96,7 +103,7 @@ namespace BattleTechModLoader
                         }
 
                         if (methodParams.Length == 0) continue;
-                        
+
                         Log("\tMethod Params:");
                         foreach (var prm in methodParams)
                         {
@@ -111,7 +118,6 @@ namespace BattleTechModLoader
             }
         }
 
-        [UsedImplicitly]
         public static void Init()
         {
             var manifestDirectory = Path.GetDirectoryName(VersionManifestUtilities.MANIFEST_FILEPATH)
@@ -151,54 +157,13 @@ namespace BattleTechModLoader
             // load the dlls
             foreach (var dllPath in dllPaths)
             {
-                Log($"Found DLL: {Path.GetFileName(dllPath)}");
-                LoadDLL(dllPath);
+                if (!IGNORE_FILE_NAMES.Contains(Path.GetFileName(dllPath)))
+                    LoadDLL(dllPath);
             }
 
             // do some simple benchmarking
             sw.Stop();
-            Log("");
-            Log($"Took {sw.Elapsed.TotalSeconds} seconds to load mods");
-
-            // print out harmony summary
-            var patchedMethods = harmony.GetPatchedMethods().ToArray();
-            if (patchedMethods.Length == 0)
-            {
-                Log("No Harmony Patches loaded.");
-                return;
-            }
-
-            Log("");
-            Log("Harmony Patched Methods (after mod loader startup):");
-
-            foreach (var method in patchedMethods)
-            {
-                var info = harmony.GetPatchInfo(method);
-
-                if (info == null) continue;
-                
-                Log($"{method.ReflectedType.FullName}.{method.Name}:");
-
-                // prefixes
-                if (info.Prefixes.Count != 0)
-                    Log("\tPrefixes:");
-                foreach (var patch in info.Prefixes)
-                    Log($"\t\t{patch.owner}");
-
-                // transpilers
-                if (info.Transpilers.Count != 0)
-                    Log("\tTranspilers:");
-                foreach (var patch in info.Transpilers)
-                    Log($"\t\t{patch.owner}");
-
-                // postfixes
-                if (info.Postfixes.Count != 0)
-                    Log("\tPostfixes:");
-                foreach (var patch in info.Postfixes)
-                    Log($"\t\t{patch.owner}");
-            }
-
-            Log("");
+            Log($"\nTook {sw.Elapsed.TotalSeconds} seconds to load mods\n");
         }
     }
 }
