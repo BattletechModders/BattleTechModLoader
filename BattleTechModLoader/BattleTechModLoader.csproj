@@ -44,6 +44,7 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\System.dll</HintPath>
     </Reference>
+    <Reference Include="System.configuration" />
     <Reference Include="System.Core">
       <Private>False</Private>
       <SpecificVersion>False</SpecificVersion>
@@ -146,9 +147,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ModLoaderConfigurationElement.cs" />
     <Compile Include="BTModLoader.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

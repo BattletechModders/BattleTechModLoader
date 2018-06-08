@@ -146,7 +146,10 @@ namespace BattleTechModLoader
             var harmony = HarmonyInstance.Create("io.github.mpstark.BTModLoader");
 
             // get all dll paths
-            var dllPaths = Directory.GetFiles(ModDirectory).Where(x => Path.GetExtension(x).ToLower() == ".dll").ToArray();
+            var dllFileNames = Directory.GetFiles(ModDirectory).Where(x => Path.GetExtension(x).ToLower() == ".dll").ToList();
+            dllFileNames.RemoveAll(s => FileToIgnoreSection.FilesToIgnore.Files.All.Select(f => f.FileName).Contains(s));
+
+            var dllPaths = dllFileNames.ToArray();
 
             if (dllPaths.Length == 0)
             {
