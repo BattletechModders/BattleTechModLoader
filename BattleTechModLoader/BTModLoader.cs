@@ -143,6 +143,7 @@ namespace BattleTechModLoader
                 logWriter.WriteLine($"BTModLoader -- {DateTime.Now}");
             }
 
+            // ReSharper disable once UnusedVariable
             var harmony = HarmonyInstance.Create("io.github.mpstark.BTModLoader");
 
             // get all dll paths
