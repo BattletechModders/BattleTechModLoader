@@ -85,9 +85,15 @@ namespace BattleTechModLoader
 
         private static void Restore(string filePath, string backupFilePath)
         {
-            File.Copy(backupFilePath, filePath, true);
-
-            WriteLine($"{Path.GetFileName(backupFilePath)} restored to {Path.GetFileName(filePath)}");
+            try
+            {
+                File.Copy(backupFilePath, filePath, true);
+                WriteLine($"{Path.GetFileName(backupFilePath)} restored to {Path.GetFileName(filePath)}");
+            }
+            catch (Exception e)
+            {
+                LogWithDate($"An exception occured while trying to restore:\n{e}");
+            }            
         }
 
         private static void Inject(string hookFilePath, string hookType, string hookMethod, string injectFilePath,
