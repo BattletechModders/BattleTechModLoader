@@ -92,7 +92,7 @@ namespace BattleTechModLoader
             }
             catch (Exception e)
             {
-                LogWithDate($"An exception occured while trying to restore:\n{e}");
+                LogWithDate($"An exception occurred while trying to restore:\n{e}");
             }            
         }
 
