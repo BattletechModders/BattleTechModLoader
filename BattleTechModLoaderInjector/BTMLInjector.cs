@@ -17,8 +17,8 @@ namespace BattleTechModLoader
         private const string GAME_DLL_FILE_NAME = "Assembly-CSharp.dll";
         private const string BACKUP_EXT = ".orig";
 
-        private const string HOOK_TYPE = "BattleTech.GameInstance";
-        private const string HOOK_METHOD = ".ctor";
+        private const string HOOK_TYPE = "BattleTech.Main";
+        private const string HOOK_METHOD = "Start";
 
         private static int Main(string[] args)
         {
@@ -95,21 +95,57 @@ namespace BattleTechModLoader
         {
             WriteLine($"Injecting {Path.GetFileName(hookFilePath)} with {injectType}.{injectMethod} at {hookType}.{hookMethod}");
 
-            using (var game = ModuleDefinition.ReadModule(hookFilePath, new ReaderParameters {ReadWrite = true}))
+            using (var game = ModuleDefinition.ReadModule(hookFilePath, new ReaderParameters { ReadWrite = true }))
             using (var injected = ModuleDefinition.ReadModule(injectFilePath))
             {
                 // get the methods that we're hooking and injecting
                 var injectedMethod = injected.GetType(injectType).Methods.Single(x => x.Name == injectMethod);
-                var hookedMethod = game.GetType(hookType).Methods.First(x => x.Name == hookMethod);
 
-                // inject our method into the beginning of the hooks method
-                hookedMethod.Body.GetILProcessor().InsertBefore(hookedMethod.Body.Instructions[0],
-                    Instruction.Create(OpCodes.Call, game.ImportReference(injectedMethod)));
+                // Start() is an IEnumerator method in Main -- so we have to find the nested iterator which contains the code
+                // we actually want to inject into -- which will be in it's MoveNext method
+                var nestedIterator = game.GetType(hookType).NestedTypes.First(x => x.Name.Contains("Start") && x.Name.Contains("Iterator"));
+                var moveNextMethod = nestedIterator.Methods.First(x => x.Name.Equals("MoveNext"));
 
-                // save the modified assembly
-                WriteLine($"Writing back to {Path.GetFileName(hookFilePath)}...");
-                game.Write();
-                WriteLine("Injection complete!");
+
+                // As of BattleTech v1.1 the Start() iterator method of BattleTech.Main has this at the end
+                /*
+                 *  ...
+                 *  
+                 *	    Serializer.PrepareSerializer();
+			     *      this.activate.enabled = true;
+			     *      yield break;
+		         *
+                 *  }
+                 */
+
+                // We want to inject after the PrepareSerializer call -- so search for that call in the CIL
+                int targetInstruction = -1;
+                for (int i = 0; i < moveNextMethod.Body.Instructions.Count; i++) 
+                {
+                    var instruction = moveNextMethod.Body.Instructions[i];
+                    if (instruction.OpCode.Code.Equals(Code.Call) && instruction.OpCode.OperandType.Equals(OperandType.InlineMethod))
+                    {
+                        MethodReference methodReference = (MethodReference)instruction.Operand;
+                        if (methodReference.Name.Contains("PrepareSerializer"))
+                        {
+                            targetInstruction = i;
+                        }
+                    }
+                }
+                
+                if (targetInstruction != -1)
+                {
+                    moveNextMethod.Body.GetILProcessor().InsertAfter(moveNextMethod.Body.Instructions[targetInstruction],
+                        Instruction.Create(OpCodes.Call, game.ImportReference(injectedMethod)));
+                    // save the modified assembly
+                    WriteLine($"Writing back to {Path.GetFileName(hookFilePath)}...");
+                    game.Write();
+                    WriteLine("Injection complete!");
+                }
+                else
+                {
+                    WriteLine($"Could not locate injection point!");
+                }
             }
         }
 
@@ -138,3 +174,4 @@ namespace BattleTechModLoader
         }
     }
 }
+ 
