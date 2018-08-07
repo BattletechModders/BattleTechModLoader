@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using System.Collections.Generic;
 
 namespace BattleTechModLoader
 {
@@ -11,14 +12,18 @@ namespace BattleTechModLoader
     internal static class BTMLInjector
     {
         private const string INJECTED_DLL_FILE_NAME = "BattleTechModLoader.dll";
-        private const string INJECT_TYPE = "BattleTechModLoader.BTModLoader";
-        private const string INJECT_METHOD = "Init";
 
         private const string GAME_DLL_FILE_NAME = "Assembly-CSharp.dll";
         private const string BACKUP_EXT = ".orig";
 
-        private const string HOOK_TYPE = "BattleTech.Main";
-        private const string HOOK_METHOD = "Start";
+        private const string CURRENT_INJECT_TYPE = "BattleTechModLoader.BTModLoader";
+        private const string CURRENT_INJECT_METHOD = "Init";
+        private const string CURRENT_HOOK_TYPE = "BattleTech.Main";
+        private const string CURRENT_HOOK_METHOD = "Start";
+        private static readonly Dictionary<string, string> OLD_HOOKS = new Dictionary<string, string>()
+        {
+            { "BattleTech.GameInstance", ".ctor" }
+        };
 
         private static int Main(string[] args)
         {
@@ -34,8 +39,31 @@ namespace BattleTechModLoader
             var returnCode = 0;
             try
             {
-                var injected = IsInjected(gameDllPath, HOOK_TYPE, HOOK_METHOD, injectDllPath, INJECT_TYPE, INJECT_METHOD);
-                if (args.Contains("/restore"))
+                bool isCurrentInjection;
+                var injected = IsInjected(gameDllPath, out isCurrentInjection);
+                var needsInjection = !injected;
+                var installing = !args.Contains("/restore");
+
+                if (installing)
+                {
+                    if (needsInjection)
+                    {
+                        Backup(gameDllPath, gameDllBackupPath);
+                        Inject(gameDllPath, CURRENT_HOOK_TYPE, CURRENT_HOOK_METHOD, injectDllPath, CURRENT_INJECT_TYPE, CURRENT_INJECT_METHOD);
+                    }
+                    else
+                    {
+                        if (isCurrentInjection)
+                        {
+                            WriteLine($"{GAME_DLL_FILE_NAME} already injected with {CURRENT_INJECT_TYPE}.{CURRENT_INJECT_METHOD}.");
+                        }
+                        else
+                        {
+                            WriteLine($"ERROR: {GAME_DLL_FILE_NAME} already injected with an older BattleTechModLoader Injector.  Please revert the file and re-run injector!");
+                        }
+                    }
+                }
+                else
                 {
                     if (injected)
                     {
@@ -44,18 +72,6 @@ namespace BattleTechModLoader
                     else
                     {
                         WriteLine($"{GAME_DLL_FILE_NAME} already restored.");
-                    }
-                }
-                else
-                {
-                    if (injected)
-                    {
-                        WriteLine($"{GAME_DLL_FILE_NAME} already injected with {INJECT_TYPE}.{INJECT_METHOD}.");
-                    }
-                    else
-                    {
-                        Backup(gameDllPath, gameDllBackupPath);
-                        Inject(gameDllPath, HOOK_TYPE, HOOK_METHOD, injectDllPath, INJECT_TYPE, INJECT_METHOD);
                     }
                 }
             }
@@ -79,14 +95,12 @@ namespace BattleTechModLoader
         private static void Backup(string filePath, string backupFilePath)
         {
             File.Copy(filePath, backupFilePath, true);
-
             WriteLine($"{Path.GetFileName(filePath)} backed up to {Path.GetFileName(backupFilePath)}");
         }
 
         private static void Restore(string filePath, string backupFilePath)
         {
             File.Copy(backupFilePath, filePath, true);
-
             WriteLine($"{Path.GetFileName(backupFilePath)} restored to {Path.GetFileName(filePath)}");
         }
 
@@ -108,18 +122,17 @@ namespace BattleTechModLoader
                     var nestedIterator = game.GetType(hookType).NestedTypes.First(x => x.Name.Contains(hookMethod) && x.Name.Contains("Iterator"));
                     hookedMethod = nestedIterator.Methods.First(x => x.Name.Equals("MoveNext"));
                 }
-                
 
                 // As of BattleTech v1.1 the Start() iterator method of BattleTech.Main has this at the end
-                /*
-                 *  ...
-                 *  
-                 *	    Serializer.PrepareSerializer();
-			     *      this.activate.enabled = true;
-			     *      yield break;
-		         *
-                 *  }
-                 */
+                //
+                //  ...
+                //
+                //      Serializer.PrepareSerializer();
+                //      this.activate.enabled = true;
+                //      yield break;
+                //
+                //  }
+                //
 
                 // We want to inject after the PrepareSerializer call -- so search for that call in the CIL
                 int targetInstruction = -1;
@@ -135,7 +148,7 @@ namespace BattleTechModLoader
                         }
                     }
                 }
-                
+
                 if (targetInstruction != -1)
                 {
                     hookedMethod.Body.GetILProcessor().InsertAfter(hookedMethod.Body.Instructions[targetInstruction],
@@ -152,27 +165,52 @@ namespace BattleTechModLoader
             }
         }
 
-        // ReSharper disable once UnusedParameter.Local // injectFilePath
-        private static bool IsInjected(string hookFilePath, string hookType, string hookMethod, string injectFilePath,
-            string injectType, string injectMethod)
+        private static bool IsInjected(string dllPath, out bool isCurrentInjection)
         {
-            using (var game = ModuleDefinition.ReadModule(hookFilePath))
+            isCurrentInjection = false;
+            using (var dll = ModuleDefinition.ReadModule(dllPath))
             {
-                // get the methods that we're hooking and injecting
-                var hookedMethod = game.GetType(hookType).Methods.First(x => x.Name == hookMethod);
+                if (CheckCurrentHook(dll)) {
+                    isCurrentInjection = true;
+                    return true;
+                }
+                if (CheckOldHooks(dll)) {
+                    return true;
+                }
+            }
+            return false;
+        }
 
-                // check if we've been injected
-                foreach (var instruction in hookedMethod.Body.Instructions)
+        private static bool CheckCurrentHook(ModuleDefinition dll) {
+            var method = dll.GetType(CURRENT_HOOK_TYPE).Methods.First(x => x.Name == CURRENT_HOOK_METHOD);
+            return IsHookInstalled(method);
+        }
+
+        private static bool CheckOldHooks(ModuleDefinition dll) {
+            foreach (var typeMethodPair in OLD_HOOKS)
+            {
+                var definition = dll.GetType(typeMethodPair.Key);
+                if (definition == null) continue;
+                var method = definition.Methods.First(x => x.Name == typeMethodPair.Value);
+                if (method == null) continue;
+                if (IsHookInstalled(method)) return true;
+            }
+            return false;
+        }
+
+        private static bool IsHookInstalled(MethodDefinition methodDefinition)
+        {
+            if (methodDefinition.Body != null)
+            {
+                foreach (var instruction in methodDefinition.Body.Instructions)
                 {
-                    if (instruction.OpCode.Equals(OpCodes.Call)
-                        && instruction.Operand.ToString().Equals(
-                            $"System.Void {injectType}::{injectMethod}()"))
+                    if (instruction.OpCode.Equals(OpCodes.Call) &&
+                        instruction.Operand.ToString().Equals($"System.Void {CURRENT_INJECT_TYPE}::{CURRENT_INJECT_METHOD}()"))
                     {
                         return true;
                     }
                 }
             }
-
             return false;
         }
     }
