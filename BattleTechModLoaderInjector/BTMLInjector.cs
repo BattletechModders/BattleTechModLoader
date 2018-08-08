@@ -3,9 +3,12 @@ using System.IO;
 using System.Linq;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Options;
 
 namespace BattleTechModLoader
 {
+    using System.Diagnostics;
+    using System.Reflection;
     using static Console;
 
     internal static class BTMLInjector
@@ -20,41 +23,70 @@ namespace BattleTechModLoader
         private const string InjectType   = "BattleTechModLoader.BTModLoader";
         private const string InjectMethod = "Init";
 
-        private const string RestoreFlag  = "/restore";
-        private const string NoPromptFlag = "/nokeypress";
-
         private static int Main(string[] args)
         {
             var returnCode = 0;
+            var requireKeyPress = true;
+            var detecting = false;
+            var helping = false;
+            var installing = true;
+            var restoring = false;
+            var updating = false;
+            var versioning = false;
+
             try
             {
-                SayHeader();
+                var options = new OptionSet()
+                {
+                    { "d|detect",     "Detect if the BTG assembly is already injected",   v => detecting = v != null },
+                    { "h|?|help",     "Print this useful help message",                   v => helping = v != null },
+                    { "i|install",    "Install the Mod (Default Behavior)",               v => installing = v != null },
+                    { "y|nokeypress", "Anwser prompts affirmatively",                     v => requireKeyPress = v == null },
+                    { "r|restore",    "Restore pristine BTG assembly to folder",          v => restoring = v != null },
+                    { "u|update",     "Update injected BTG assembly to current version",  v => updating = v != null },
+                    { "v|version",    "Print the BattleTechModInjector version number",   v => versioning = v != null }
+                };
 
-                var directory         = Directory.GetCurrentDirectory();
-                var gameDllPath       = Path.Combine(directory, GameDllFileName);
+                try
+                {
+                    options.Parse(args);
+                }
+                catch (OptionException e)
+                {
+                    SayOptionException(e);
+                    returnCode = 2;
+                    return returnCode;
+                }
+
+                if (versioning)
+                {
+                    SayVersion();
+                    return returnCode;
+                }
+
+                var directory = Directory.GetCurrentDirectory();
+                var gameDllPath = Path.Combine(directory, GameDllFileName);
                 var gameDllBackupPath = Path.Combine(directory, GameDllFileName + BackupFileExt);
-                var injectDllPath     = Path.Combine(directory, InjectedDllFileName);
+                var injectDllPath = Path.Combine(directory, InjectedDllFileName);
 
                 bool isCurrentInjection;
-                var injected       = IsInjected(gameDllPath, out isCurrentInjection);
-                var needsInjection = !injected;
+                var injected = IsInjected(gameDllPath, out isCurrentInjection);
 
-                var installing = !args.Contains(RestoreFlag);
-
-                if (installing)
+                if (detecting)
                 {
-                    if (needsInjection)
-                    {
-                        Backup(gameDllPath, gameDllBackupPath);
-                        Inject(gameDllPath, injectDllPath);
-                    }
-                    else
-                    {
-                        SayAlreadyInjected(isCurrentInjection);
-                    }
+                    SayInjectedStatus(injected);
+                    return returnCode;
                 }
-                else
+
+                SayHeader();
+
+                if (helping)
                 {
+                    SayHelp(options);
+                    return returnCode;
+                }
+
+                if (restoring) {
                     if (injected)
                     {
                         Restore(gameDllPath, gameDllBackupPath);
@@ -63,19 +95,59 @@ namespace BattleTechModLoader
                     {
                         SayAlreadyRestored();
                     }
+                    PromptForKey(requireKeyPress);
+                    return returnCode;
+                }
+
+                if (updating) {
+                    if (injected) {
+                        var yes = PromptForUpdateYesNo(requireKeyPress);
+                        if (yes) {
+                            Restore(gameDllPath, gameDllBackupPath);
+                            // TODO: re-detect on backup and throw exception with useful
+                            //       mitigation steps if the backup is also fucked.
+                            Inject(gameDllPath, injectDllPath);
+                        } else {
+                            SayUpdateCanceled();
+                        }
+                    }
+                    PromptForKey(requireKeyPress);
+                    return returnCode;
+                }
+
+                if (installing)
+                {
+                    if (!injected)
+                    {
+                        // TODO: detect backup corruption
+                        Backup(gameDllPath, gameDllBackupPath);
+                        Inject(gameDllPath, injectDllPath);
+                    }
+                    else
+                    {
+                        SayAlreadyInjected(isCurrentInjection);
+                    }
+                    PromptForKey(requireKeyPress);
+                    return returnCode;
                 }
             }
             catch (Exception e)
             {
                 SayException(e);
-                returnCode = 1;
             }
 
-            // if executed from e.g. a setup or test tool, don't prompt
-            var requireKeyPress = !args.Contains(NoPromptFlag);
-            if (requireKeyPress) PromptForKey();
-
+            // if we got here something went badly
+            returnCode = 1;
             return returnCode;
+        }
+
+        private static void SayInjectedStatus(bool injected)
+        {
+            if (injected) {
+                WriteLine("true");
+            } else {
+                WriteLine("false");
+            }
         }
 
         private static void Backup(string filePath, string backupFilePath)
@@ -204,10 +276,45 @@ namespace BattleTechModLoader
             return false;
         }
 
+        private static void SayHelp(OptionSet p)
+        {
+            WriteLine("Usage: BattleTechModLoaderInjector.exe [OPTIONS]+");
+            WriteLine("Inject the BattleTech game assembly with an entry point for mod enablement.");
+            WriteLine("If no options are specified, the program assumes you want to /install.");
+            WriteLine();
+            WriteLine("Options:");
+            p.WriteOptionDescriptions(Out);
+        }
+
+        private static void SayVersion() 
+        {
+            WriteLine(GetProductVersion());
+        }
+
+        public static string GetProductVersion()
+        {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
+            return fvi.FileVersion;
+        }
+
+        private static void SayOptionException(OptionException e)
+        {
+            SayHeader();
+            Write("BattleTechModLoaderInjector.exe: ");
+            WriteLine(e.Message);
+            WriteLine("Try `BattleTechModLoaderInjector.exe --help' for more information.");
+        }
+
         private static void SayHeader()
         {
             WriteLine("BattleTechModLoader Injector");
             WriteLine("----------------------------");
+        }
+
+        private static void SayWasNotInjected()
+        {
+            WriteLine($"{GameDllFileName} was not previously injected.");
         }
 
         private static void SayAlreadyInjected(bool isCurrentInjection)
@@ -227,13 +334,27 @@ namespace BattleTechModLoader
             WriteLine($"{GameDllFileName} already restored.");
         }
 
+        private static void SayUpdateCanceled()
+        {
+            WriteLine($"{GameDllFileName} update cancelled.");
+        }
+
         private static void SayException(Exception e)
         {
             WriteLine($"ERROR: An exception occured: {e}");
         }
 
-        private static void PromptForKey()
+        private static bool PromptForUpdateYesNo(bool requireKeyPress)
         {
+            if (!requireKeyPress) return true;
+            WriteLine("Would you like to update your assembly now? (y/n)");
+            var key = ReadKey();
+            return (key.Key == ConsoleKey.Y);
+        }
+
+        private static void PromptForKey(bool requireKeyPress)
+        {
+            if (!requireKeyPress) return;
             WriteLine("Press any key to continue.");
             ReadKey();
         }
