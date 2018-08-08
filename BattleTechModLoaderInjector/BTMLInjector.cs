@@ -3,7 +3,6 @@ using System.IO;
 using System.Linq;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
-using System.Collections.Generic;
 
 namespace BattleTechModLoader
 {
