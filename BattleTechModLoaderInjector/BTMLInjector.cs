@@ -103,11 +103,18 @@ namespace BattleTechModLoader
                     if (injected) {
                         var yes = PromptForUpdateYesNo(requireKeyPress);
                         if (yes) {
-                            Restore(gameDllPath, gameDllBackupPath);
-                            // TODO: re-detect on backup and throw exception with useful
-                            //       mitigation steps if the backup is also fucked.
+                            if (File.Exists(gameDllBackupPath)) {
+                                Restore(gameDllPath, gameDllBackupPath);
+                            }
+                            else
+                            {
+                                SayException(new FileNotFoundException());
+                                SayHowToRecover();
+                            }
                             Inject(gameDllPath, injectDllPath);
-                        } else {
+                        }
+                        else
+                        {
                             SayUpdateCanceled();
                         }
                     }
@@ -139,6 +146,12 @@ namespace BattleTechModLoader
             // if we got here something went badly
             returnCode = 1;
             return returnCode;
+        }
+
+        private static void SayHowToRecover()
+        {
+            WriteLine("You will need the original assembly file named as assembly-csharp.orig beside the injector for /restore to work.");
+            WriteLine("You may need to reinstall or use Steam's file verification function if you have no other backup.");
         }
 
         private static void SayInjectedStatus(bool injected)
@@ -286,7 +299,7 @@ namespace BattleTechModLoader
             p.WriteOptionDescriptions(Out);
         }
 
-        private static void SayVersion() 
+        private static void SayVersion()
         {
             WriteLine(GetProductVersion());
         }
