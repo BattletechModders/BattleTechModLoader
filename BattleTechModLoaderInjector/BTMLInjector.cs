@@ -150,7 +150,7 @@ namespace BattleTechModLoader
 
         private static void SayHowToRecover()
         {
-            WriteLine("You will need the original assembly file named as assembly-csharp.dll.orig beside the injector for /restore to work.");
+            WriteLine("You will need the original assembly file beside the injector (named as assembly-csharp.dll.orig) for /restore to work.");
             WriteLine("You may need to reinstall or use Steam's file verification function if you have no other backup.");
         }
 
