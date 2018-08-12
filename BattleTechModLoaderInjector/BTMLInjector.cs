@@ -99,18 +99,14 @@ namespace BattleTechModLoader
                     return returnCode;
                 }
 
-                if (updating) {
-                    if (injected) {
+                if (updating)
+                {
+                    if (injected)
+                    {
                         var yes = PromptForUpdateYesNo(requireKeyPress);
-                        if (yes) {
-                            if (File.Exists(gameDllBackupPath)) {
-                                Restore(gameDllPath, gameDllBackupPath);
-                            }
-                            else
-                            {
-                                SayException(new FileNotFoundException());
-                                SayHowToRecover();
-                            }
+                        if (yes)
+                        {
+                            Restore(gameDllPath, gameDllBackupPath);
                             Inject(gameDllPath, injectDllPath);
                         }
                         else
@@ -118,6 +114,7 @@ namespace BattleTechModLoader
                             SayUpdateCanceled();
                         }
                     }
+
                     PromptForKey(requireKeyPress);
                     return returnCode;
                 }
@@ -171,6 +168,10 @@ namespace BattleTechModLoader
 
         private static void Restore(string filePath, string backupFilePath)
         {
+            if (!File.Exists(backupFilePath))
+            {
+                throw new BackupFileNotFound(backupFilePath + " was not found");
+            }
             File.Copy(backupFilePath, filePath, true);
             WriteLine($"{Path.GetFileName(backupFilePath)} restored to {Path.GetFileName(filePath)}");
         }
@@ -287,6 +288,11 @@ namespace BattleTechModLoader
                 }
             }
             return false;
+        }
+
+        public class BackupFileNotFound: Exception {
+            public BackupFileNotFound(string message): base(message) {
+            }
         }
 
         private static void SayHelp(OptionSet p)
