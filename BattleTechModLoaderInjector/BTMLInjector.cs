@@ -170,7 +170,7 @@ namespace BattleTechModLoader
         {
             if (!File.Exists(backupFilePath))
             {
-                throw new BackupFileNotFound(backupFilePath + " was not found");
+                throw new BackupFileNotFound();
             }
             File.Copy(backupFilePath, filePath, true);
             WriteLine($"{Path.GetFileName(backupFilePath)} restored to {Path.GetFileName(filePath)}");
@@ -290,10 +290,17 @@ namespace BattleTechModLoader
             return false;
         }
 
-        public class BackupFileNotFound: Exception {
-            public BackupFileNotFound(string message): base(message) {
+        public class BackupFileNotFound : FileNotFoundException
+        {
+            public BackupFileNotFound(string backupFileName = "Assembly-CSharp.dll.orig") :
+                base(FormulateMessage(backupFileName)) {}
+
+            private static string FormulateMessage(string backupFileName)
+            {
+                return $"The backup file \"{backupFileName}\" could not be found.";
             }
         }
+
         private static void SayHelp(OptionSet p)
         {
             WriteLine("Usage: BattleTechModLoaderInjector.exe [OPTIONS]+");
