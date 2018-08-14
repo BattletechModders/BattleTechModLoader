@@ -294,7 +294,6 @@ namespace BattleTechModLoader
             public BackupFileNotFound(string message): base(message) {
             }
         }
-
         private static void SayHelp(OptionSet p)
         {
             WriteLine("Usage: BattleTechModLoaderInjector.exe [OPTIONS]+");
