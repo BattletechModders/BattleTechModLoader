@@ -99,18 +99,22 @@ namespace BattleTechModLoader
                     return returnCode;
                 }
 
-                if (updating) {
-                    if (injected) {
+                if (updating)
+                {
+                    if (injected)
+                    {
                         var yes = PromptForUpdateYesNo(requireKeyPress);
-                        if (yes) {
+                        if (yes)
+                        {
                             Restore(gameDllPath, gameDllBackupPath);
-                            // TODO: re-detect on backup and throw exception with useful
-                            //       mitigation steps if the backup is also fucked.
                             Inject(gameDllPath, injectDllPath);
-                        } else {
+                        }
+                        else
+                        {
                             SayUpdateCanceled();
                         }
                     }
+
                     PromptForKey(requireKeyPress);
                     return returnCode;
                 }
@@ -141,6 +145,12 @@ namespace BattleTechModLoader
             return returnCode;
         }
 
+        private static void SayHowToRecover()
+        {
+            WriteLine("You will need the original assembly file beside the injector (named as assembly-csharp.dll.orig) for /restore to work.");
+            WriteLine("You may need to reinstall or use Steam's file verification function if you have no other backup.");
+        }
+
         private static void SayInjectedStatus(bool injected)
         {
             if (injected) {
@@ -158,6 +168,10 @@ namespace BattleTechModLoader
 
         private static void Restore(string filePath, string backupFilePath)
         {
+            if (!File.Exists(backupFilePath))
+            {
+                throw new BackupFileNotFound();
+            }
             File.Copy(backupFilePath, filePath, true);
             WriteLine($"{Path.GetFileName(backupFilePath)} restored to {Path.GetFileName(filePath)}");
         }
@@ -276,6 +290,17 @@ namespace BattleTechModLoader
             return false;
         }
 
+        public class BackupFileNotFound : FileNotFoundException
+        {
+            public BackupFileNotFound(string backupFileName = "Assembly-CSharp.dll.orig") :
+                base(FormulateMessage(backupFileName)) {}
+
+            private static string FormulateMessage(string backupFileName)
+            {
+                return $"The backup file \"{backupFileName}\" could not be found.";
+            }
+        }
+
         private static void SayHelp(OptionSet p)
         {
             WriteLine("Usage: BattleTechModLoaderInjector.exe [OPTIONS]+");
@@ -286,7 +311,7 @@ namespace BattleTechModLoader
             p.WriteOptionDescriptions(Out);
         }
 
-        private static void SayVersion() 
+        private static void SayVersion()
         {
             WriteLine(GetProductVersion());
         }
