@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -8,10 +7,14 @@ using Mono.Options;
 
 namespace BattleTechModLoader
 {
+#if RTML
+    using System.IO.Compression;
     using System.Collections.Generic;
+    using Newtonsoft.Json;
+#endif
     using System.Diagnostics;
     using System.Reflection;
-    using Newtonsoft.Json;
+
 
     using static Console;
 
@@ -274,7 +277,7 @@ namespace BattleTechModLoader
             //}
         }
 
-        #if RTML
+#if RTML
         private const string FactionsFileName = "rt-factions.zip";
         private const int EnumStartingId = 5000;
 
