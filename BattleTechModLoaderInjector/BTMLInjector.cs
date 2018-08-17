@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -7,8 +8,11 @@ using Mono.Options;
 
 namespace BattleTechModLoader
 {
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Reflection;
+    using Newtonsoft.Json;
+
     using static Console;
 
     internal static class BTMLInjector
@@ -44,7 +48,7 @@ namespace BattleTechModLoader
                     { "y|nokeypress", "Anwser prompts affirmatively",                     v => requireKeyPress = v == null },
                     { "r|restore",    "Restore pristine BTG assembly to folder",          v => restoring = v != null },
                     { "u|update",     "Update injected BTG assembly to current version",  v => updating = v != null },
-                    { "v|version",    "Print the BattleTechModInjector version number",   v => versioning = v != null }
+                    { "v|version",    "Print the BattleTechModInjector version number",   v => versioning = v != null },
                 };
 
                 try
@@ -188,62 +192,144 @@ namespace BattleTechModLoader
         private static void Inject(string hookFilePath, string injectFilePath)
         {
             WriteLine($"Injecting {Path.GetFileName(hookFilePath)} with {InjectType}.{InjectMethod} at {HookType}.{HookMethod}");
-
+            var success = true;
             using (var game = ModuleDefinition.ReadModule(hookFilePath, new ReaderParameters { ReadWrite = true }))
             using (var injecting = ModuleDefinition.ReadModule(injectFilePath))
             {
-                // get the methods that we're hooking and injecting
-                var injectedMethod = injecting.GetType(InjectType).Methods.Single(x => x.Name == InjectMethod);
-                var hookedMethod = game.GetType(HookType).Methods.First(x => x.Name == HookMethod);
-
-                // If the return type is an iterator -- need to go searching for its MoveNext method which contains the actual code you'll want to inject
-                if (hookedMethod.ReturnType.Name.Equals("IEnumerator"))
-                {
-                    var nestedIterator = game.GetType(HookType).NestedTypes.First(x => x.Name.Contains(HookMethod) && x.Name.Contains("Iterator"));
-                    hookedMethod = nestedIterator.Methods.First(x => x.Name.Equals("MoveNext"));
-                }
-
-                // As of BattleTech v1.1 the Start() iterator method of BattleTech.Main has this at the end
-                //
-                //  ...
-                //
-                //      Serializer.PrepareSerializer();
-                //      this.activate.enabled = true;
-                //      yield break;
-                //
-                //  }
-                //
-
-                // We want to inject after the PrepareSerializer call -- so search for that call in the CIL
-                int targetInstruction = -1;
-                for (int i = 0; i < hookedMethod.Body.Instructions.Count; i++)
-                {
-                    var instruction = hookedMethod.Body.Instructions[i];
-                    if (instruction.OpCode.Code.Equals(Code.Call) && instruction.OpCode.OperandType.Equals(OperandType.InlineMethod))
-                    {
-                        MethodReference methodReference = (MethodReference)instruction.Operand;
-                        if (methodReference.Name.Contains("PrepareSerializer"))
-                        {
-                            targetInstruction = i;
-                        }
-                    }
-                }
-
-                if (targetInstruction != -1)
-                {
-                    hookedMethod.Body.GetILProcessor().InsertAfter(hookedMethod.Body.Instructions[targetInstruction],
-                        Instruction.Create(OpCodes.Call, game.ImportReference(injectedMethod)));
-                    // save the modified assembly
-                    WriteLine($"Writing back to {Path.GetFileName(hookFilePath)}...");
-                    game.Write();
-                    WriteLine("Injection complete!");
-                }
-                else
-                {
-                    WriteLine($"Could not locate injection point!");
-                }
+                success = InjectModHookPoint(game, injecting);
+#if RTML
+                if (success) success = InjectNewFactions(game, injecting);
+#endif
+                if (success) success = WriteNewAssembly(hookFilePath, game);
+            }
+            if (!success)
+            {
+                WriteLine("Failed to inject the game assembly.");
             }
         }
+
+        private static bool WriteNewAssembly(string hookFilePath, ModuleDefinition game)
+        {
+            // save the modified assembly
+            WriteLine($"Writing back to {game.FileName}...");
+            WriteLine($"Writing back to {Path.GetFileName(hookFilePath)}...");
+            game.Write();
+            WriteLine("Injection complete!");
+            return true;
+        }
+
+        private static bool InjectModHookPoint(ModuleDefinition game, ModuleDefinition injecting)
+        {
+            // get the methods that we're hooking and injecting
+            var injectedMethod = injecting.GetType(InjectType).Methods.Single(x => x.Name == InjectMethod);
+            var hookedMethod = game.GetType(HookType).Methods.First(x => x.Name == HookMethod);
+
+            // If the return type is an iterator -- need to go searching for its MoveNext method which contains the actual code you'll want to inject
+            if (hookedMethod.ReturnType.Name.Equals("IEnumerator"))
+            {
+                var nestedIterator = game.GetType(HookType).NestedTypes.First(x => x.Name.Contains(HookMethod) && x.Name.Contains("Iterator"));
+                hookedMethod = nestedIterator.Methods.First(x => x.Name.Equals("MoveNext"));
+            }
+
+            // As of BattleTech v1.1 the Start() iterator method of BattleTech.Main has this at the end
+            //
+            //  ...
+            //
+            //      Serializer.PrepareSerializer();
+            //      this.activate.enabled = true;
+            //      yield break;
+            //
+            //  }
+            //
+
+            // We want to inject after the PrepareSerializer call -- so search for that call in the CIL
+            int targetInstruction = -1;
+            for (int i = 0; i < hookedMethod.Body.Instructions.Count; i++)
+            {
+                var instruction = hookedMethod.Body.Instructions[i];
+                if (instruction.OpCode.Code.Equals(Code.Call) && instruction.OpCode.OperandType.Equals(OperandType.InlineMethod))
+                {
+                    MethodReference methodReference = (MethodReference)instruction.Operand;
+                    if (methodReference.Name.Contains("PrepareSerializer"))
+                    {
+                        targetInstruction = i;
+                    }
+                }
+            }
+
+            if (targetInstruction == -1) return false;
+            hookedMethod.Body.GetILProcessor().InsertAfter(hookedMethod.Body.Instructions[targetInstruction],
+                Instruction.Create(OpCodes.Call, game.ImportReference(injectedMethod)));
+            return true;
+                //// save the modified assembly
+                //WriteLine($"Writing back to {game.FileName}...");
+                //WriteLine($"Writing back to {Path.GetFileName(hookFilePath)}...");
+                //game.Write();
+                //WriteLine("Injection complete!");
+
+            //}
+            //else
+            //{
+            //    WriteLine($"Could not locate injection point!");
+            //}
+        }
+
+        #if RTML
+        private const string FactionsFileName = "rt-factions.zip";
+        private const int EnumStartingId = 5000;
+
+        private static bool InjectNewFactions(ModuleDefinition game, ModuleDefinition injecting)
+        {
+            var enumAttributes =
+                Mono.Cecil.FieldAttributes.Public |
+                Mono.Cecil.FieldAttributes.Static |
+                Mono.Cecil.FieldAttributes.Literal |
+                Mono.Cecil.FieldAttributes.HasDefault;
+            var factions = ReadFactions();
+            var factionBase = game.GetType("BattleTech.Faction");
+            foreach (var faction in factions)
+            {
+                var newField = new FieldDefinition(faction.Name, enumAttributes, factionBase) { Constant = faction.Id };
+                factionBase.Fields.Add(newField);
+            }
+            return true;
+        }
+
+        private static List<FactionStub> ReadFactions()
+        {
+            var directory = Directory.GetCurrentDirectory();
+            var factionPath = Path.Combine(directory, FactionsFileName);
+            var factionDefinition = new { Faction = "" };
+            var factions = new List<FactionStub>();
+            var id = EnumStartingId;
+            Write("Injecting factions... ");
+            using (ZipArchive archive = ZipFile.OpenRead(factionPath))
+            {
+                foreach (ZipArchiveEntry entry in archive.Entries)
+                {
+                    if (entry.FullName.StartsWith("faction_", StringComparison.OrdinalIgnoreCase) &&
+                        entry.FullName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        using (StreamReader reader = new StreamReader(entry.Open()))
+                        {
+                            var raw = reader.ReadToEnd();
+                            var faction = JsonConvert.DeserializeAnonymousType(raw, factionDefinition);
+                            factions.Add(new FactionStub() { Name = faction.Faction, Id = id });
+                        }
+                    }
+                    id++;
+                }
+            }
+            WriteLine($"Injected {factions.Count} factions.");
+            return factions;
+        }
+
+        private struct FactionStub
+        {
+            public string Name;
+            public int Id;
+        }
+#endif
 
         private static bool IsInjected(string dllPath)
         {
