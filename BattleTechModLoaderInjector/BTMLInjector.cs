@@ -315,9 +315,9 @@ namespace BattleTechModLoader
                             var raw = reader.ReadToEnd();
                             var faction = JsonConvert.DeserializeAnonymousType(raw, factionDefinition);
                             factions.Add(new FactionStub() { Name = faction.Faction, Id = id });
+                            id++;
                         }
                     }
-                    id++;
                 }
             }
             WriteLine($"Injected {factions.Count} factions.");
