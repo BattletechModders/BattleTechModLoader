@@ -41,11 +41,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="0Harmony">
-      <Private>True</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\0Harmony.dll</HintPath>
-    </Reference>
     <Reference Include="Mono.Cecil, Version=0.10.0.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e">
       <HintPath>..\packages\Mono.Cecil.0.10.0\lib\net40\Mono.Cecil.dll</HintPath>
       <Private>True</Private>
