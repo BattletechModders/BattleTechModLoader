@@ -32,7 +32,10 @@ namespace BattleTechModLoader
 
             try
             {
+
                 var assembly = Assembly.LoadFrom(path);
+                var name = assembly.GetName();
+                var version = name.Version;
                 var types = new List<Type>();
 
                 // find the type/s with our entry point/s
@@ -47,7 +50,7 @@ namespace BattleTechModLoader
 
                 if (types.Count == 0)
                 {
-                    LogWithDate($"{fileName}: Failed to find specified entry point: {typeName ?? "NotSpecified"}.{methodName}");
+                    LogWithDate($"{fileName} (v{version}): Failed to find specified entry point: {typeName ?? "NotSpecified"}.{methodName}");
                     return;
                 }
 
@@ -62,7 +65,7 @@ namespace BattleTechModLoader
 
                     if (methodParams.Length == 0)
                     {
-                        LogWithDate($"{fileName}: Found and called entry point \"{entryMethod}\" in type \"{type.FullName}\"");
+                        LogWithDate($"{fileName} (v{version}): Found and called entry point \"{entryMethod}\" in type \"{type.FullName}\"");
                         entryMethod.Invoke(null, null);
                     }
                     else
@@ -81,14 +84,14 @@ namespace BattleTechModLoader
 
                             if (paramsMatch)
                             {
-                                LogWithDate($"{fileName}: Found and called entry point \"{entryMethod}\" in type \"{type.FullName}\"");
+                                LogWithDate($"{fileName} (v{version}): Found and called entry point \"{entryMethod}\" in type \"{type.FullName}\"");
                                 entryMethod.Invoke(null, prms);
                                 continue;
                             }
                         }
 
                         // diagnosing problems of this type (haha it's a pun) is pretty hard
-                        LogWithDate($"{fileName}: Provided params don't match {type.Name}.{entryMethod.Name}");
+                        LogWithDate($"{fileName} (v{version}): Provided params don't match {type.Name}.{entryMethod.Name}");
                         Log("\tPassed in Params:");
                         if (prms != null)
                         {
@@ -99,7 +102,7 @@ namespace BattleTechModLoader
                         }
                         else
                         {
-                            Log("\t\tprms is null");
+                            Log("\t\t'prms' is null");
                         }
 
                         if (methodParams.Length == 0) continue;
@@ -130,6 +133,8 @@ namespace BattleTechModLoader
 
             LogPath = Path.Combine(ModDirectory, "BTModLoader.log");
 
+            var btmlVersion = Assembly.GetExecutingAssembly().GetName().Version;
+
             // do some simple benchmarking
             var sw = new Stopwatch();
             sw.Start();
@@ -140,7 +145,7 @@ namespace BattleTechModLoader
             // create log file, overwritting if it's already there
             using (var logWriter = File.CreateText(LogPath))
             {
-                logWriter.WriteLine($"BTModLoader -- {DateTime.Now}");
+                logWriter.WriteLine($"BTModLoader -- BTML v{btmlVersion} -- {DateTime.Now}");
             }
 
             // ReSharper disable once UnusedVariable
