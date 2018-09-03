@@ -26,6 +26,9 @@ BTML uses [Mono.Cecil](https://github.com/jbevain/cecil) to parse `Assembly-CSha
 
 A log is generated at `\Mods\BTModLoader.log` overwriting any previous log. This log additionally contains a record all of the Harmony hooks that happen at mod loading time.
 
+## Building It
+In each project folder there is an example project user file. You can copy that file and rename it without the `.example` ending and then update it to point to your managed DLL folder. The Injector user file is also setup to run the injector in the managed folder, so you can test the injector without leaving VStudio.
+
 ## Licence
 
 BTML is provided under the "Unlicence", which releases the work into the public domain.
