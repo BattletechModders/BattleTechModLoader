@@ -89,6 +89,7 @@
     <ProjectReference Include="..\BattleTechModLoader\BattleTechModLoader.csproj">
       <Project>{3da1d634-af82-4479-8ea3-580ba2f17be7}</Project>
       <Name>BattleTechModLoader</Name>
+      <Private>False</Private>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
