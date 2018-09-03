@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
@@ -32,126 +32,29 @@
     <LangVersion>Default</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="0Harmony">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\0Harmony.dll</HintPath>
-    </Reference>
-    <Reference Include="Assembly-CSharp">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\Assembly-CSharp.dll</HintPath>
-    </Reference>
-    <Reference Include="Assembly-CSharp-firstpass">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Core">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\System.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Data">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\System.Data.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Runtime.Serialization">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\System.Runtime.Serialization.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Security">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\System.Security.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Threading">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\System.Threading.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Xml">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\System.Xml.dll</HintPath>
-    </Reference>
-    <Reference Include="UnityEngine">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\UnityEngine.dll</HintPath>
-    </Reference>
-    <Reference Include="UnityEngine.UI">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\UnityEngine.UI.dll</HintPath>
-    </Reference>
-    <Reference Include="BattleTech.Common">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\BattleTech.Common.dll</HintPath>
-    </Reference>
-    <Reference Include="Mono.Data.Sqlite">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\Mono.Data.Sqlite.dll</HintPath>
-    </Reference>
-    <Reference Include="Ionic.Zip">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\Ionic.Zip.dll</HintPath>
-    </Reference>
-    <Reference Include="NGettext">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\NGettext.dll</HintPath>
-    </Reference>
-    <Reference Include="Newtonsoft.Json">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\Newtonsoft.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="Mono.Security">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\Mono.Security.dll</HintPath>
-    </Reference>
-    <Reference Include="protobuf-net">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\protobuf-net.dll</HintPath>
-    </Reference>
-    <Reference Include="Google.Protobuf.Unity">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\Google.Protobuf.Unity.dll</HintPath>
-    </Reference>
-    <Reference Include="ShadowrunDTO">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\ShadowrunDTO.dll</HintPath>
-    </Reference>
-    <Reference Include="ShadowrunSerializer">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\ShadowrunSerializer.dll</HintPath>
-    </Reference>
-    <Reference Include="ServiceStack.Interfaces">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\ServiceStack.Interfaces.dll</HintPath>
-    </Reference>
-    <Reference Include="Sigil">
-      <Private>False</Private>
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(BattleTechGame)\BattleTech_Data\Managed\Sigil.dll</HintPath>
-    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.Xml" />
+    <Reference Include="0Harmony" />
+    <Reference Include="BattleTech.Common" />
+    <Reference Include="Google.Protobuf.Unity" />
+    <Reference Include="Ionic.Zip" />
+    <Reference Include="Mono.Data.Sqlite" />
+    <Reference Include="Mono.Security" />
+    <Reference Include="Newtonsoft.Json" />
+    <Reference Include="NGettext" />
+    <Reference Include="protobuf-net" />
+    <Reference Include="ServiceStack.Interfaces" />
+    <Reference Include="ShadowrunDTO" />
+    <Reference Include="ShadowrunSerializer" />
+    <Reference Include="Sigil" />
+    <Reference Include="UnityEngine" />
+    <Reference Include="UnityEngine.UI" />
+    <Reference Include="Assembly-CSharp-firstpass" />
+    <Reference Include="Assembly-CSharp" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BTModLoader.cs" />
