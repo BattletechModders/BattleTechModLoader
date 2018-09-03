@@ -16,7 +16,6 @@ EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Release|Any CPU = Release|Any CPU
-		Release - Factions|Any CPU = Release - Factions|Any CPU
 		Release - RTML|Any CPU = Release - RTML|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
