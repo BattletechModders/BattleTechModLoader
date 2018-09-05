@@ -1,7 +1,8 @@
 # BTML
 
 - [x] improve CLI
-- [ ] improve logging (in hand with modtek)
+- [x] improve logging (in hand with modtek)
+- [ ] improved array handling [PR](https://github.com/janxious/ModTek/pull/2)
 - [ ] merge with modtek
 - [ ] add modder feature for warning about bad versioning (1.0.0.0 is bad)
 - [ ] improve injector for mac with shell script that does the work necessary without user intervention
