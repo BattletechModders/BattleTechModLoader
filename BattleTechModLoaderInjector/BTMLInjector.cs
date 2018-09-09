@@ -264,17 +264,6 @@ namespace BattleTechModLoader
             hookedMethod.Body.GetILProcessor().InsertAfter(hookedMethod.Body.Instructions[targetInstruction],
                 Instruction.Create(OpCodes.Call, game.ImportReference(injectedMethod)));
             return true;
-                //// save the modified assembly
-                //WriteLine($"Writing back to {game.FileName}...");
-                //WriteLine($"Writing back to {Path.GetFileName(hookFilePath)}...");
-                //game.Write();
-                //WriteLine("Injection complete!");
-
-            //}
-            //else
-            //{
-            //    WriteLine($"Could not locate injection point!");
-            //}
         }
 
 #if RTML
