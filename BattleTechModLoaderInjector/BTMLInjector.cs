@@ -30,11 +30,15 @@ namespace BattleTechModLoader
         private const string InjectType   = "BattleTechModLoader.BTModLoader";
         private const string InjectMethod = "Init";
 
+        private const string VersionType  = "VersionInfo";
+        private const string VersionConst = "CURRENT_VERSION_NUMBER";
+
         private static int Main(string[] args)
         {
             var returnCode = 0;
             var requireKeyPress = true;
             var detecting = false;
+            var expectedGameVersion = "";
             var helping = false;
             var installing = true;
             var restoring = false;
@@ -45,13 +49,14 @@ namespace BattleTechModLoader
             {
                 var options = new OptionSet()
                 {
-                    { "d|detect",     "Detect if the BTG assembly is already injected",   v => detecting = v != null },
-                    { "h|?|help",     "Print this useful help message",                   v => helping = v != null },
-                    { "i|install",    "Install the Mod (Default Behavior)",               v => installing = v != null },
-                    { "y|nokeypress", "Anwser prompts affirmatively",                     v => requireKeyPress = v == null },
-                    { "r|restore",    "Restore pristine BTG assembly to folder",          v => restoring = v != null },
-                    { "u|update",     "Update injected BTG assembly to current version",  v => updating = v != null },
-                    { "v|version",    "Print the BattleTechModInjector version number",   v => versioning = v != null },
+                    { "d|detect",       "Detect if the BTG assembly is already injected",   v => detecting = v != null },
+                    { "g|gameversion=", "Detect if the BTG assembly is already injected",   v => expectedGameVersion = v },
+                    { "h|?|help",       "Print this useful help message",                   v => helping = v != null },
+                    { "i|install",      "Install the Mod (Default Behavior)",               v => installing = v != null },
+                    { "y|nokeypress",   "Anwser prompts affirmatively",                     v => requireKeyPress = v == null },
+                    { "r|restore",      "Restore pristine BTG assembly to folder",          v => restoring = v != null },
+                    { "u|update",       "Update injected BTG assembly to current version",  v => updating = v != null },
+                    { "v|version",      "Print the BattleTechModInjector version number",   v => versioning = v != null },
                 };
 
                 try
@@ -77,7 +82,16 @@ namespace BattleTechModLoader
                 var injectDllPath = Path.Combine(directory, InjectedDllFileName);
 
                 bool isCurrentInjection;
-                var injected = IsInjected(gameDllPath, out isCurrentInjection);
+                string version;
+                var injected = IsInjected(gameDllPath, out isCurrentInjection, out version);
+
+                if (!string.IsNullOrEmpty(expectedGameVersion))
+                {
+                    if (expectedGameVersion != version) 
+                        returnCode = 5;
+                    SayGameVersion(version, expectedGameVersion);
+                    return returnCode;
+                }
 
                 if (detecting)
                 {
@@ -325,24 +339,23 @@ namespace BattleTechModLoader
 
         private static bool IsInjected(string dllPath)
         {
-            return IsInjected(dllPath, out _);
+            return IsInjected(dllPath, out _, out _);
         }
-        private static bool IsInjected(string dllPath, out bool isCurrentInjection)
+        private static bool IsInjected(string dllPath, out bool isCurrentInjection, out string gameVersion)
         {
             isCurrentInjection = false;
+            gameVersion = "";
+            var detectedInject = false;
             using (var dll = ModuleDefinition.ReadModule(dllPath))
             {
                 foreach (TypeDefinition type in dll.Types)
                 {
-                    // Assume we only ever inject in BattleTech classes
-                    if (!type.FullName.StartsWith("BattleTech", StringComparison.Ordinal)) continue;
-
                     // Standard methods
                     foreach (var methodDefinition in type.Methods)
                     {
                         if (IsHookInstalled(methodDefinition, out isCurrentInjection))
                         {
-                            return true;
+                            detectedInject = true;
                         }
                     }
 
@@ -353,13 +366,19 @@ namespace BattleTechModLoader
                         {
                             if (IsHookInstalled(methodDefinition, out isCurrentInjection))
                             {
-                                return true;
+                                detectedInject = true;
                             }
                         }
                     }
+                    if (type.FullName == VersionType)
+                    {
+                        var fieldInfo = type.Fields.First(x => x.IsLiteral && !x.IsInitOnly && x.Name == VersionConst);
+                        if (null != fieldInfo) gameVersion = fieldInfo.Constant.ToString();
+                    }
+                    if (detectedInject && !string.IsNullOrEmpty(gameVersion)) return detectedInject;
                 }
             }
-            return false;
+            return detectedInject;
         }
 
         private static bool IsHookInstalled(MethodDefinition methodDefinition, out bool isCurrentInjection)
@@ -389,6 +408,12 @@ namespace BattleTechModLoader
             WriteLine();
             WriteLine("Options:");
             p.WriteOptionDescriptions(Out);
+        }
+
+        private static void SayGameVersion(string version, string expectedVersion)
+        {
+            WriteLine($"Expected BTG v{expectedVersion}");
+            WriteLine($"Actual BTG v{version}");
         }
 
         private static void SayVersion()
