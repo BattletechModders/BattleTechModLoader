@@ -20,6 +20,15 @@ namespace BattleTechModLoader
 
     internal static class BTMLInjector
     {
+        // Return Codes, Codified
+        private const int RC_Normal = 0;
+        private const int RC_UnhandledState = 1;
+        private const int RC_BadOptions = 2;
+        private const int RC_MissingBackupFile = 3;
+        private const int RC_BackupFileInjected = 4;
+        private const int RC_RequiredGameVersionMismatch = 5;
+        // /Return Codes
+
         private const string InjectedDllFileName = "BattleTechModLoader.dll";
 
         private const string GameDllFileName = "Assembly-CSharp.dll";
@@ -30,15 +39,17 @@ namespace BattleTechModLoader
         private const string InjectType   = "BattleTechModLoader.BTModLoader";
         private const string InjectMethod = "Init";
 
-        private const string VersionType  = "VersionInfo";
-        private const string VersionConst = "CURRENT_VERSION_NUMBER";
+        private const string GameVersionType  = "VersionInfo";
+        private const string GameVersionConst = "CURRENT_VERSION_NUMBER";
 
         private static int Main(string[] args)
         {
-            var returnCode = 0;
+            var returnCode = RC_Normal;
             var requireKeyPress = true;
             var detecting = false;
-            var expectedGameVersion = "";
+            var requiredGameVersion = String.Empty;
+            var requiredGameVersionMismatchMessage = String.Empty;
+            var gameVersion = false;
             var helping = false;
             var installing = true;
             var restoring = false;
@@ -49,14 +60,36 @@ namespace BattleTechModLoader
             {
                 var options = new OptionSet()
                 {
-                    { "d|detect",       "Detect if the BTG assembly is already injected",   v => detecting = v != null },
-                    { "g|gameversion=", "Detect if the BTG assembly is already injected",   v => expectedGameVersion = v },
-                    { "h|?|help",       "Print this useful help message",                   v => helping = v != null },
-                    { "i|install",      "Install the Mod (Default Behavior)",               v => installing = v != null },
-                    { "y|nokeypress",   "Anwser prompts affirmatively",                     v => requireKeyPress = v == null },
-                    { "r|restore",      "Restore pristine BTG assembly to folder",          v => restoring = v != null },
-                    { "u|update",       "Update injected BTG assembly to current version",  v => updating = v != null },
-                    { "v|version",      "Print the BattleTechModInjector version number",   v => versioning = v != null },
+                    { "d|detect",
+                        "Detect if the BTG assembly is already injected",
+                        v => detecting = v != null },
+                    { "g|gameversion",
+                        "Print the BTG version number",
+                        v => gameVersion = v != null },
+                    { "h|?|help",
+                        "Print this useful help message",
+                        v => helping = v != null },
+                    { "i|install",
+                        "Install the Mod (this is the default behavior)",
+                        v => installing = v != null },
+                    { "y|nokeypress",
+                        "Anwser prompts affirmatively",
+                        v => requireKeyPress = v == null },
+                    { "r|restore",
+                        "Restore pristine backup BTG assembly to folder",
+                        v => restoring = v != null },
+                    { "u|update",
+                        "Update injected BTG assembly to current version",
+                        v => updating = v != null },
+                    { "v|version",
+                        "Print the BattleTechModInjector version number",
+                        v => versioning = v != null },
+                    { "requiredversion=", 
+                        "Don't continue with /install, /update, etc. if the BTG game version does not match given argument",
+                        v => requiredGameVersion = v },
+                    { "reqmismatchmsg=",
+                        "Print msg if required version check fails",
+                        v => requiredGameVersionMismatchMessage = v },
                 };
 
                 try
@@ -66,7 +99,7 @@ namespace BattleTechModLoader
                 catch (OptionException e)
                 {
                     SayOptionException(e);
-                    returnCode = 2;
+                    returnCode = RC_BadOptions;
                     return returnCode;
                 }
 
@@ -85,12 +118,21 @@ namespace BattleTechModLoader
                 string version;
                 var injected = IsInjected(gameDllPath, out isCurrentInjection, out version);
 
-                if (!string.IsNullOrEmpty(expectedGameVersion))
+                if (gameVersion)
                 {
-                    if (expectedGameVersion != version) 
-                        returnCode = 5;
-                    SayGameVersion(version, expectedGameVersion);
+                    SayGameVersion(version);
                     return returnCode;
+                }
+                if (!string.IsNullOrEmpty(requiredGameVersion))
+                {
+                    if (requiredGameVersion != version)
+                    {
+                        SayRequiredGameVersion(version, requiredGameVersion);
+                        returnCode = RC_RequiredGameVersionMismatch;
+                        SayRequiredGameVersionMismatchMessage(requiredGameVersionMismatchMessage);
+                        PromptForKey(requireKeyPress);
+                        return returnCode;
+                    }
                 }
 
                 if (detecting)
@@ -159,14 +201,14 @@ namespace BattleTechModLoader
             {
                 SayException(e);
                 SayHowToRecoverMissingBackup(e.BackupFileName);
-                returnCode = 3;
+                returnCode = RC_MissingBackupFile;
                 return returnCode;
             }
             catch (BackupFileInjected e)
             {
                 SayException(e);
                 SayHowToRecoverInjectedBackup(e.BackupFileName);
-                returnCode = 4;
+                returnCode = RC_BackupFileInjected;
                 return returnCode;
             }
             catch (Exception e)
@@ -174,7 +216,7 @@ namespace BattleTechModLoader
                 SayException(e);
             }
 
-            returnCode = 1;
+            returnCode = RC_UnhandledState;
             return returnCode;
         }
 
@@ -370,9 +412,9 @@ namespace BattleTechModLoader
                             }
                         }
                     }
-                    if (type.FullName == VersionType)
+                    if (type.FullName == GameVersionType)
                     {
-                        var fieldInfo = type.Fields.First(x => x.IsLiteral && !x.IsInitOnly && x.Name == VersionConst);
+                        var fieldInfo = type.Fields.First(x => x.IsLiteral && !x.IsInitOnly && x.Name == GameVersionConst);
                         if (null != fieldInfo) gameVersion = fieldInfo.Constant.ToString();
                     }
                     if (detectedInject && !string.IsNullOrEmpty(gameVersion)) return detectedInject;
@@ -410,10 +452,19 @@ namespace BattleTechModLoader
             p.WriteOptionDescriptions(Out);
         }
 
-        private static void SayGameVersion(string version, string expectedVersion)
+        private static void SayGameVersion(string version)
+        {
+            WriteLine(version);
+        }
+        private static void SayRequiredGameVersion(string version, string expectedVersion)
         {
             WriteLine($"Expected BTG v{expectedVersion}");
             WriteLine($"Actual BTG v{version}");
+        }
+        private static void SayRequiredGameVersionMismatchMessage(string msg)
+        {
+            if (!string.IsNullOrEmpty(msg))
+              WriteLine(msg);
         }
 
         private static void SayVersion()
