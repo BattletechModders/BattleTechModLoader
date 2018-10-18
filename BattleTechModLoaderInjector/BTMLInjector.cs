@@ -1,3 +1,4 @@
+requirever
 using System;
 using System.IO;
 using System.Linq;
@@ -84,7 +85,7 @@ namespace BattleTechModLoader
                     { "v|version",
                         "Print the BattleTechModInjector version number",
                         v => versioning = v != null },
-                    { "requiredversion=", 
+                    { "requiredversion=",
                         "Don't continue with /install, /update, etc. if the BTG game version does not match given argument",
                         v => requiredGameVersion = v },
                     { "reqmismatchmsg=",
