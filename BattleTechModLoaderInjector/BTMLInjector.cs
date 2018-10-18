@@ -222,11 +222,7 @@ namespace BattleTechModLoader
 
         private static void SayInjectedStatus(bool injected)
         {
-            if (injected) {
-                WriteLine("true");
-            } else {
-                WriteLine("false");
-            }
+            WriteLine(injected.ToString().ToLower());
         }
 
         private static void Backup(string filePath, string backupFilePath)
