@@ -26,10 +26,12 @@ namespace BattleTechModLoader
         private const int RC_BadOptions = 2;
         private const int RC_MissingBackupFile = 3;
         private const int RC_BackupFileInjected = 4;
-        private const int RC_RequiredGameVersionMismatch = 5;
+        private const int RC_BadManagedDirectoryProvided = 5;
+        private const int RC_MissingModLoaderAssembly = 6;
+        private const int RC_RequiredGameVersionMismatch = 7;
         // /Return Codes
 
-        private const string InjectedDllFileName = "BattleTechModLoader.dll";
+        private const string ModLoaderDllFileName = "BattleTechModLoader.dll";
 
         private const string GameDllFileName = "Assembly-CSharp.dll";
         private const string BackupFileExt   = ".orig";
@@ -44,11 +46,11 @@ namespace BattleTechModLoader
 
         private static int Main(string[] args)
         {
-            var returnCode = RC_Normal;
             var requireKeyPress = true;
             var detecting = false;
             var requiredGameVersion = String.Empty;
             var requiredGameVersionMismatchMessage = String.Empty;
+            var managedDir = String.Empty;
             var gameVersion = false;
             var helping = false;
             var installing = true;
@@ -72,9 +74,18 @@ namespace BattleTechModLoader
                     { "i|install",
                         "Install the Mod (this is the default behavior)",
                         v => installing = v != null },
+                    { "manageddir=",
+                        "specify managed dir where BTG's Assembly-CSharp.dll is located",
+                        v => managedDir = v},
                     { "y|nokeypress",
                         "Anwser prompts affirmatively",
                         v => requireKeyPress = v == null },
+                    { "reqmismatchmsg=",
+                        "Print msg if required version check fails",
+                        v => requiredGameVersionMismatchMessage = v },
+                    { "requiredversion=",
+                        "Don't continue with /install, /update, etc. if the BTG game version does not match given argument",
+                        v => requiredGameVersion = v },
                     { "r|restore",
                         "Restore pristine backup BTG assembly to folder",
                         v => restoring = v != null },
@@ -84,12 +95,6 @@ namespace BattleTechModLoader
                     { "v|version",
                         "Print the BattleTechModInjector version number",
                         v => versioning = v != null },
-                    { "requiredversion=",
-                        "Don't continue with /install, /update, etc. if the BTG game version does not match given argument",
-                        v => requiredGameVersion = v },
-                    { "reqmismatchmsg=",
-                        "Print msg if required version check fails",
-                        v => requiredGameVersionMismatchMessage = v },
                 };
 
                 try
@@ -99,20 +104,44 @@ namespace BattleTechModLoader
                 catch (OptionException e)
                 {
                     SayOptionException(e);
-                    returnCode = RC_BadOptions;
-                    return returnCode;
+                    return RC_BadOptions;
                 }
 
                 if (versioning)
                 {
                     SayVersion();
-                    return returnCode;
+                    return RC_Normal;
                 }
 
-                var directory = Directory.GetCurrentDirectory();
+                if (helping)
+                {
+                    SayHelp(options);
+                    return RC_Normal;
+                }
+
+                var currentDirectory = Directory.GetCurrentDirectory();
+                var directory = currentDirectory;
+                FileInfo givenManagedDir;
+                if (!string.IsNullOrEmpty(managedDir)) {
+                    givenManagedDir = new FileInfo(managedDir);
+                    if (!givenManagedDir.Exists && !givenManagedDir.Directory.Exists) {
+                        SayManagedDirMissingError(managedDir);
+                        return RC_BadManagedDirectoryProvided;
+                    }
+                    directory = givenManagedDir.Directory.FullName;
+                }
+
                 var gameDllPath = Path.Combine(directory, GameDllFileName);
                 var gameDllBackupPath = Path.Combine(directory, GameDllFileName + BackupFileExt);
-                var injectDllPath = Path.Combine(directory, InjectedDllFileName);
+                var modLoaderDllPath = Path.Combine(currentDirectory, ModLoaderDllFileName);
+                if (!new FileInfo(gameDllPath).Exists) {
+                    SayGameAssemblyMissingError(managedDir);
+                    return RC_BadManagedDirectoryProvided;
+                }
+                if (!new FileInfo(modLoaderDllPath).Exists){
+                    SayModLoaderAssemblyMissingError(modLoaderDllPath);
+                    return RC_MissingModLoaderAssembly;
+                }
 
                 bool isCurrentInjection;
                 string version;
@@ -121,33 +150,28 @@ namespace BattleTechModLoader
                 if (gameVersion)
                 {
                     SayGameVersion(version);
-                    return returnCode;
+                    return RC_Normal;
                 }
                 if (!string.IsNullOrEmpty(requiredGameVersion))
                 {
                     if (requiredGameVersion != version)
                     {
                         SayRequiredGameVersion(version, requiredGameVersion);
-                        returnCode = RC_RequiredGameVersionMismatch;
                         SayRequiredGameVersionMismatchMessage(requiredGameVersionMismatchMessage);
                         PromptForKey(requireKeyPress);
-                        return returnCode;
+                        return RC_RequiredGameVersionMismatch;
                     }
                 }
 
                 if (detecting)
                 {
                     SayInjectedStatus(injected);
-                    return returnCode;
+                    return RC_Normal;
                 }
 
                 SayHeader();
 
-                if (helping)
-                {
-                    SayHelp(options);
-                    return returnCode;
-                }
+
 
                 if (restoring) {
                     if (injected)
@@ -159,7 +183,7 @@ namespace BattleTechModLoader
                         SayAlreadyRestored();
                     }
                     PromptForKey(requireKeyPress);
-                    return returnCode;
+                    return RC_Normal;
                 }
 
                 if (updating)
@@ -170,7 +194,7 @@ namespace BattleTechModLoader
                         if (yes)
                         {
                             Restore(gameDllPath, gameDllBackupPath);
-                            Inject(gameDllPath, injectDllPath);
+                            Inject(gameDllPath, modLoaderDllPath);
                         }
                         else
                         {
@@ -179,7 +203,7 @@ namespace BattleTechModLoader
                     }
 
                     PromptForKey(requireKeyPress);
-                    return returnCode;
+                    return RC_Normal;
                 }
 
                 if (installing)
@@ -187,37 +211,34 @@ namespace BattleTechModLoader
                     if (!injected)
                     {
                         Backup(gameDllPath, gameDllBackupPath);
-                        Inject(gameDllPath, injectDllPath);
+                        Inject(gameDllPath, modLoaderDllPath);
                     }
                     else
                     {
                         SayAlreadyInjected(isCurrentInjection);
                     }
                     PromptForKey(requireKeyPress);
-                    return returnCode;
+                    return RC_Normal;
                 }
             }
             catch (BackupFileNotFound e)
             {
                 SayException(e);
                 SayHowToRecoverMissingBackup(e.BackupFileName);
-                returnCode = RC_MissingBackupFile;
-                return returnCode;
+                return RC_MissingBackupFile;
             }
             catch (BackupFileInjected e)
             {
                 SayException(e);
                 SayHowToRecoverInjectedBackup(e.BackupFileName);
-                returnCode = RC_BackupFileInjected;
-                return returnCode;
+                return RC_BackupFileInjected;
             }
             catch (Exception e)
             {
                 SayException(e);
             }
 
-            returnCode = RC_UnhandledState;
-            return returnCode;
+            return RC_UnhandledState;
         }
 
         private static void SayInjectedStatus(bool injected)
@@ -440,6 +461,7 @@ namespace BattleTechModLoader
 
         private static void SayHelp(OptionSet p)
         {
+            SayHeader();
             WriteLine("Usage: BattleTechModLoaderInjector.exe [OPTIONS]+");
             WriteLine("Inject the BattleTech game assembly with an entry point for mod enablement.");
             WriteLine("If no options are specified, the program assumes you want to /install.");
@@ -481,6 +503,26 @@ namespace BattleTechModLoader
             Write("BattleTechModLoaderInjector.exe: ");
             WriteLine(e.Message);
             WriteLine("Try `BattleTechModLoaderInjector.exe --help' for more information.");
+        }
+
+        private static void SayManagedDirMissingError(string givenManagedDir)
+        {
+            SayHeader();
+            WriteLine($"ERROR: We could not find the directory '{givenManagedDir}'. Are you sure it exists?");
+        }
+
+        private static void SayGameAssemblyMissingError(string givenManagedDir)
+        {
+            SayHeader();
+            WriteLine($"ERROR: We could not find the BTG assembly {GameDllFileName} in directory '{givenManagedDir}'.\n" +
+                      "Are you sure that is the correct directory?");
+        }
+
+        private static void SayModLoaderAssemblyMissingError(string expectedModLoaderAssemblyPath)
+        {
+            SayHeader();
+            WriteLine($"ERROR: We could not find the BTG assembly {ModLoaderDllFileName} at '{expectedModLoaderAssemblyPath}'.\n" +
+                      $"Is {ModLoaderDllFileName} in the correct place? It should be in the same directory as this injector executable.");
         }
 
         private static void SayHeader()
