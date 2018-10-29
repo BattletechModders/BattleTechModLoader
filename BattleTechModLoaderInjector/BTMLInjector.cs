@@ -90,7 +90,7 @@ namespace BattleTechModLoader
                         "Restore pristine backup BTG assembly to folder",
                         v => restoring = v != null },
                     { "u|update",
-                        "Update injected BTG assembly to current version",
+                        "Update mod loader injection of BTG assembly to current BTML version",
                         v => updating = v != null },
                     { "v|version",
                         "Print the BattleTechModInjector version number",
@@ -119,8 +119,7 @@ namespace BattleTechModLoader
                     return RC_Normal;
                 }
 
-                var currentDirectory = Directory.GetCurrentDirectory();
-                var directory = currentDirectory;
+                var directory = Directory.GetCurrentDirectory();
                 FileInfo givenManagedDir;
                 if (!string.IsNullOrEmpty(managedDir)) {
                     givenManagedDir = new FileInfo(managedDir);
@@ -133,7 +132,7 @@ namespace BattleTechModLoader
 
                 var gameDllPath = Path.Combine(directory, GameDllFileName);
                 var gameDllBackupPath = Path.Combine(directory, GameDllFileName + BackupFileExt);
-                var modLoaderDllPath = Path.Combine(currentDirectory, ModLoaderDllFileName);
+                var modLoaderDllPath = Path.Combine(directory, ModLoaderDllFileName);
                 if (!new FileInfo(gameDllPath).Exists) {
                     SayGameAssemblyMissingError(managedDir);
                     return RC_BadManagedDirectoryProvided;
@@ -267,6 +266,9 @@ namespace BattleTechModLoader
 
         private static void Inject(string hookFilePath, string injectFilePath)
         {
+            string oldDirectory = Directory.GetCurrentDirectory();
+            string newDirectory = Path.GetDirectoryName(hookFilePath);
+            Directory.SetCurrentDirectory(newDirectory);
             WriteLine($"Injecting {Path.GetFileName(hookFilePath)} with {InjectType}.{InjectMethod} at {HookType}.{HookMethod}");
             var success = true;
             using (var game = ModuleDefinition.ReadModule(hookFilePath, new ReaderParameters { ReadWrite = true }))
@@ -276,18 +278,19 @@ namespace BattleTechModLoader
 #if RTML
                 if (success) success = InjectNewFactions(game, injecting);
 #endif
+
                 if (success) success = WriteNewAssembly(hookFilePath, game);
             }
             if (!success)
             {
                 WriteLine("Failed to inject the game assembly.");
             }
+            Directory.SetCurrentDirectory(oldDirectory);
         }
 
         private static bool WriteNewAssembly(string hookFilePath, ModuleDefinition game)
         {
             // save the modified assembly
-            WriteLine($"Writing back to {game.FileName}...");
             WriteLine($"Writing back to {Path.GetFileName(hookFilePath)}...");
             game.Write();
             WriteLine("Injection complete!");
