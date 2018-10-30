@@ -21,13 +21,13 @@ namespace BattleTechModLoader
     internal static class BTMLInjector
     {
         // Return Codes, Codified
-        private const int RC_Normal = 0;
-        private const int RC_UnhandledState = 1;
-        private const int RC_BadOptions = 2;
-        private const int RC_MissingBackupFile = 3;
-        private const int RC_BackupFileInjected = 4;
+        private const int RC_Normal                      = 0;
+        private const int RC_UnhandledState              = 1;
+        private const int RC_BadOptions                  = 2;
+        private const int RC_MissingBackupFile           = 3;
+        private const int RC_BackupFileInjected          = 4;
         private const int RC_BadManagedDirectoryProvided = 5;
-        private const int RC_MissingModLoaderAssembly = 6;
+        private const int RC_MissingModLoaderAssembly    = 6;
         private const int RC_RequiredGameVersionMismatch = 7;
         // /Return Codes
 
@@ -44,62 +44,51 @@ namespace BattleTechModLoader
         private const string GameVersionType  = "VersionInfo";
         private const string GameVersionConst = "CURRENT_VERSION_NUMBER";
 
-        private static int Main(string[] args)
-        {
-            var requireKeyPress = true;
-            var detecting = false;
-            var requiredGameVersion = String.Empty;
-            var requiredGameVersionMismatchMessage = String.Empty;
-            var managedDir = String.Empty;
-            var gameVersion = false;
-            var helping = false;
-            var installing = true;
-            var restoring = false;
-            var updating = false;
-            var versioning = false;
-
-            try
-            {
-                var options = new OptionSet()
+        private static readonly ReceivedOptions opt = new ReceivedOptions();
+        private static readonly OptionSet Options   = new OptionSet()
                 {
                     { "d|detect",
                         "Detect if the BTG assembly is already injected",
-                        v => detecting = v != null },
+                        v => opt.detecting = v != null },
                     { "g|gameversion",
                         "Print the BTG version number",
-                        v => gameVersion = v != null },
+                        v => opt.gameVersion = v != null },
                     { "h|?|help",
                         "Print this useful help message",
-                        v => helping = v != null },
+                        v => opt.helping = v != null },
                     { "i|install",
                         "Install the Mod (this is the default behavior)",
-                        v => installing = v != null },
+                        v => opt.installing = v != null },
                     { "manageddir=",
                         "specify managed dir where BTG's Assembly-CSharp.dll is located",
-                        v => managedDir = v},
+                        v => opt.managedDir = v},
                     { "y|nokeypress",
                         "Anwser prompts affirmatively",
-                        v => requireKeyPress = v == null },
+                        v => opt.requireKeyPress = v == null },
                     { "reqmismatchmsg=",
                         "Print msg if required version check fails",
-                        v => requiredGameVersionMismatchMessage = v },
+                        v => opt.requiredGameVersionMismatchMessage = v },
                     { "requiredversion=",
                         "Don't continue with /install, /update, etc. if the BTG game version does not match given argument",
-                        v => requiredGameVersion = v },
+                        v => opt.requiredGameVersion = v },
                     { "r|restore",
                         "Restore pristine backup BTG assembly to folder",
-                        v => restoring = v != null },
+                        v => opt.restoring = v != null },
                     { "u|update",
                         "Update mod loader injection of BTG assembly to current BTML version",
-                        v => updating = v != null },
+                        v => opt.updating = v != null },
                     { "v|version",
                         "Print the BattleTechModInjector version number",
-                        v => versioning = v != null },
+                        v => opt.versioning = v != null },
                 };
 
+        private static int Main(string[] args)
+        {
+            try
+            {
                 try
                 {
-                    options.Parse(args);
+                    ParseOptions(args);
                 }
                 catch (OptionException e)
                 {
@@ -107,24 +96,26 @@ namespace BattleTechModLoader
                     return RC_BadOptions;
                 }
 
-                if (versioning)
+                if (opt.helping)
+                {
+                    SayHelp(Options);
+                    return RC_Normal;
+                }
+
+                if (opt.versioning)
                 {
                     SayVersion();
                     return RC_Normal;
                 }
 
-                if (helping)
-                {
-                    SayHelp(options);
-                    return RC_Normal;
-                }
-
                 var directory = Directory.GetCurrentDirectory();
                 FileInfo givenManagedDir;
-                if (!string.IsNullOrEmpty(managedDir)) {
-                    givenManagedDir = new FileInfo(managedDir);
-                    if (!givenManagedDir.Exists && !givenManagedDir.Directory.Exists) {
-                        SayManagedDirMissingError(managedDir);
+                if (!string.IsNullOrEmpty(opt.managedDir))
+                {
+                    givenManagedDir = new FileInfo(opt.managedDir);
+                    if (!givenManagedDir.Exists && !givenManagedDir.Directory.Exists)
+                    {
+                        SayManagedDirMissingError(opt.managedDir);
                         return RC_BadManagedDirectoryProvided;
                     }
                     directory = givenManagedDir.Directory.FullName;
@@ -133,11 +124,13 @@ namespace BattleTechModLoader
                 var gameDllPath = Path.Combine(directory, GameDllFileName);
                 var gameDllBackupPath = Path.Combine(directory, GameDllFileName + BackupFileExt);
                 var modLoaderDllPath = Path.Combine(directory, ModLoaderDllFileName);
-                if (!new FileInfo(gameDllPath).Exists) {
-                    SayGameAssemblyMissingError(managedDir);
+                if (!new FileInfo(gameDllPath).Exists)
+                {
+                    SayGameAssemblyMissingError(opt.managedDir);
                     return RC_BadManagedDirectoryProvided;
                 }
-                if (!new FileInfo(modLoaderDllPath).Exists){
+                if (!new FileInfo(modLoaderDllPath).Exists)
+                {
                     SayModLoaderAssemblyMissingError(modLoaderDllPath);
                     return RC_MissingModLoaderAssembly;
                 }
@@ -146,23 +139,23 @@ namespace BattleTechModLoader
                 string version;
                 var injected = IsInjected(gameDllPath, out isCurrentInjection, out version);
 
-                if (gameVersion)
+                if (opt.gameVersion)
                 {
                     SayGameVersion(version);
                     return RC_Normal;
                 }
-                if (!string.IsNullOrEmpty(requiredGameVersion))
+                if (!string.IsNullOrEmpty(opt.requiredGameVersion))
                 {
-                    if (requiredGameVersion != version)
+                    if (opt.requiredGameVersion != version)
                     {
-                        SayRequiredGameVersion(version, requiredGameVersion);
-                        SayRequiredGameVersionMismatchMessage(requiredGameVersionMismatchMessage);
-                        PromptForKey(requireKeyPress);
+                        SayRequiredGameVersion(version, opt.requiredGameVersion);
+                        SayRequiredGameVersionMismatchMessage(opt.requiredGameVersionMismatchMessage);
+                        PromptForKey(opt.requireKeyPress);
                         return RC_RequiredGameVersionMismatch;
                     }
                 }
 
-                if (detecting)
+                if (opt.detecting)
                 {
                     SayInjectedStatus(injected);
                     return RC_Normal;
@@ -172,7 +165,8 @@ namespace BattleTechModLoader
 
 
 
-                if (restoring) {
+                if (opt.restoring)
+                {
                     if (injected)
                     {
                         Restore(gameDllPath, gameDllBackupPath);
@@ -181,15 +175,15 @@ namespace BattleTechModLoader
                     {
                         SayAlreadyRestored();
                     }
-                    PromptForKey(requireKeyPress);
+                    PromptForKey(opt.requireKeyPress);
                     return RC_Normal;
                 }
 
-                if (updating)
+                if (opt.updating)
                 {
                     if (injected)
                     {
-                        var yes = PromptForUpdateYesNo(requireKeyPress);
+                        var yes = PromptForUpdateYesNo(opt.requireKeyPress);
                         if (yes)
                         {
                             Restore(gameDllPath, gameDllBackupPath);
@@ -201,11 +195,11 @@ namespace BattleTechModLoader
                         }
                     }
 
-                    PromptForKey(requireKeyPress);
+                    PromptForKey(opt.requireKeyPress);
                     return RC_Normal;
                 }
 
-                if (installing)
+                if (opt.installing)
                 {
                     if (!injected)
                     {
@@ -216,7 +210,7 @@ namespace BattleTechModLoader
                     {
                         SayAlreadyInjected(isCurrentInjection);
                     }
-                    PromptForKey(requireKeyPress);
+                    PromptForKey(opt.requireKeyPress);
                     return RC_Normal;
                 }
             }
@@ -240,6 +234,12 @@ namespace BattleTechModLoader
             return RC_UnhandledState;
         }
 
+        private static void ParseOptions(string[] cmdargs)
+        {
+
+            Options.Parse(cmdargs);
+        }
+
         private static void SayInjectedStatus(bool injected)
         {
             WriteLine(injected.ToString().ToLower());
@@ -257,7 +257,8 @@ namespace BattleTechModLoader
             {
                 throw new BackupFileNotFound();
             }
-            if (IsInjected(backupFilePath)) {
+            if (IsInjected(backupFilePath))
+            {
                 throw new BackupFileInjected();
             }
             File.Copy(backupFilePath, filePath, true);
@@ -276,7 +277,7 @@ namespace BattleTechModLoader
             {
                 success = InjectModHookPoint(game, injecting);
 #if RTML
-                if (success) success = InjectNewFactions(game, injecting);
+                if (success) success = InjectNewFactions(game);
 #endif
 
                 if (success) success = WriteNewAssembly(hookFilePath, game);
@@ -346,8 +347,9 @@ namespace BattleTechModLoader
         private const string FactionsFileName = "rt-factions.zip";
         private const int EnumStartingId = 5000;
 
-        private static bool InjectNewFactions(ModuleDefinition game, ModuleDefinition injecting)
+        private static bool InjectNewFactions(ModuleDefinition game)
         {
+            Write("Injecting factions... ");
             var enumAttributes =
                 Mono.Cecil.FieldAttributes.Public |
                 Mono.Cecil.FieldAttributes.Static |
@@ -360,6 +362,7 @@ namespace BattleTechModLoader
                 var newField = new FieldDefinition(faction.Name, enumAttributes, factionBase) { Constant = faction.Id };
                 factionBase.Fields.Add(newField);
             }
+            WriteLine($"Injected {factions.Count} factions.");
             return true;
         }
 
@@ -370,7 +373,6 @@ namespace BattleTechModLoader
             var factionDefinition = new { Faction = "" };
             var factions = new List<FactionStub>();
             var id = EnumStartingId;
-            Write("Injecting factions... ");
             using (ZipArchive archive = ZipFile.OpenRead(factionPath))
             {
                 foreach (ZipArchiveEntry entry in archive.Entries)
@@ -388,7 +390,6 @@ namespace BattleTechModLoader
                     }
                 }
             }
-            WriteLine($"Injected {factions.Count} factions.");
             return factions;
         }
 
@@ -485,7 +486,7 @@ namespace BattleTechModLoader
         private static void SayRequiredGameVersionMismatchMessage(string msg)
         {
             if (!string.IsNullOrEmpty(msg))
-              WriteLine(msg);
+                WriteLine(msg);
         }
 
         private static void SayVersion()

@@ -79,6 +79,7 @@
     <Compile Include="BTMLInjector.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Options.cs" />
+    <Compile Include="ReceivedOptions.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
