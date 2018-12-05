@@ -162,7 +162,7 @@ namespace NDesk.Options
 namespace Mono.Options
 #endif
 {
-	static class StringCoda {
+    static class StringCoda {
 
 		public static IEnumerable<string> WrappedLines (string self, params int[] widths)
 		{
