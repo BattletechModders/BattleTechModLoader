@@ -1,17 +1,16 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
-using Mono.Cecil.Rocks;
 using Mono.Options;
 
 namespace BattleTechModLoader
 {
 #if RTML
-    using System.IO.Compression;
     using System.Collections.Generic;
     using Newtonsoft.Json;
+    using Ionic.Zip;
 #endif
     using System.Diagnostics;
     using System.Reflection;
@@ -22,89 +21,65 @@ namespace BattleTechModLoader
     internal static class BTMLInjector
     {
         // Return Codes, Codified
-        private const int RC_Normal = 0;
-        private const int RC_UnhandledState = 1;
-        private const int RC_BadOptions = 2;
-        private const int RC_MissingBackupFile = 3;
-        private const int RC_BackupFileInjected = 4;
+        private const int RC_Normal                      = 0;
+        private const int RC_UnhandledState              = 1;
+        private const int RC_BadOptions                  = 2;
+        private const int RC_MissingBackupFile           = 3;
+        private const int RC_BackupFileInjected          = 4;
         private const int RC_BadManagedDirectoryProvided = 5;
-        private const int RC_MissingModLoaderAssembly = 6;
-
+        private const int RC_MissingModLoaderAssembly    = 6;
         private const int RC_RequiredGameVersionMismatch = 7;
         // /Return Codes
 
         private const string ModLoaderDllFileName = "BattleTechModLoader.dll";
 
         private const string GameDllFileName = "Assembly-CSharp.dll";
-        private const string BackupFileExt = ".orig";
+        private const string BackupFileExt   = ".orig";
 
-        private const string HookType = "BattleTech.Main";
-        private const string HookMethod = "Start";
-        private const string InjectType = "BattleTechModLoader.BTModLoader";
+        private const string HookType     = "BattleTech.Main";
+        private const string HookMethod   = "Start";
+        private const string InjectType   = "BattleTechModLoader.BTModLoader";
         private const string InjectMethod = "Init";
 
-        private const string GameVersionType = "VersionInfo";
+        private const string GameVersionType  = "VersionInfo";
         private const string GameVersionConst = "CURRENT_VERSION_NUMBER";
 
         private static readonly ReceivedOptions opt = new ReceivedOptions();
-
-        private static readonly OptionSet Options = new OptionSet()
+        private static readonly OptionSet Options   = new OptionSet()
         {
-            {
-                "d|detect",
+            { "d|detect",
                 "Detect if the BTG assembly is already injected",
-                v => opt.detecting = v != null
-            },
-            {
-                "g|gameversion",
+                v => opt.detecting = v != null },
+            { "g|gameversion",
                 "Print the BTG version number",
-                v => opt.gameVersion = v != null
-            },
-            {
-                "h|?|help",
+                v => opt.gameVersion = v != null },
+            { "h|?|help",
                 "Print this useful help message",
-                v => opt.helping = v != null
-            },
-            {
-                "i|install",
+                v => opt.helping = v != null },
+            { "i|install",
                 "Install the Mod (this is the default behavior)",
-                v => opt.installing = v != null
-            },
-            {
-                "manageddir=",
+                v => opt.installing = v != null },
+            { "manageddir=",
                 "specify managed dir where BTG's Assembly-CSharp.dll is located",
-                v => opt.managedDir = v
-            },
-            {
-                "y|nokeypress",
+                v => opt.managedDir = v},
+            { "y|nokeypress",
                 "Anwser prompts affirmatively",
-                v => opt.requireKeyPress = v == null
-            },
-            {
-                "reqmismatchmsg=",
+                v => opt.requireKeyPress = v == null },
+            { "reqmismatchmsg=",
                 "Print msg if required version check fails",
-                v => opt.requiredGameVersionMismatchMessage = v
-            },
-            {
-                "requiredversion=",
+                v => opt.requiredGameVersionMismatchMessage = v },
+            { "requiredversion=",
                 "Don't continue with /install, /update, etc. if the BTG game version does not match given argument",
-                v => opt.requiredGameVersion = v
-            },
-            {
-                "r|restore",
+                v => opt.requiredGameVersion = v },
+            { "r|restore",
                 "Restore pristine backup BTG assembly to folder",
-                v => opt.restoring = v != null
-            },
-            {
-                "u|update",
+                v => opt.restoring = v != null },
+            { "u|update",
                 "Update mod loader injection of BTG assembly to current BTML version",
-                v => opt.updating = v != null
-            },
-            {
-                "v|version",
+                v => opt.updating = v != null },
+            { "v|version",
                 "Print the BattleTechModInjector version number",
-                v => opt.versioning = v != null
-            },
+                v => opt.versioning = v != null },
         };
 
         private static int Main(string[] args)
@@ -133,7 +108,7 @@ namespace BattleTechModLoader
                     return RC_Normal;
                 }
 
-                string directory = Directory.GetCurrentDirectory();
+                var directory = Directory.GetCurrentDirectory();
                 FileInfo givenManagedDir;
                 if (!string.IsNullOrEmpty(opt.managedDir))
                 {
@@ -143,19 +118,17 @@ namespace BattleTechModLoader
                         SayManagedDirMissingError(opt.managedDir);
                         return RC_BadManagedDirectoryProvided;
                     }
-
                     directory = givenManagedDir.Directory.FullName;
                 }
 
-                string gameDllPath = Path.Combine(directory, GameDllFileName);
-                string gameDllBackupPath = Path.Combine(directory, GameDllFileName + BackupFileExt);
-                string modLoaderDllPath = Path.Combine(directory, ModLoaderDllFileName);
+                var gameDllPath = Path.Combine(directory, GameDllFileName);
+                var gameDllBackupPath = Path.Combine(directory, GameDllFileName + BackupFileExt);
+                var modLoaderDllPath = Path.Combine(directory, ModLoaderDllFileName);
                 if (!new FileInfo(gameDllPath).Exists)
                 {
                     SayGameAssemblyMissingError(opt.managedDir);
                     return RC_BadManagedDirectoryProvided;
                 }
-
                 if (!new FileInfo(modLoaderDllPath).Exists)
                 {
                     SayModLoaderAssemblyMissingError(modLoaderDllPath);
@@ -164,14 +137,13 @@ namespace BattleTechModLoader
 
                 bool isCurrentInjection;
                 string version;
-                bool injected = IsInjected(gameDllPath, out isCurrentInjection, out version);
+                var injected = IsInjected(gameDllPath, out isCurrentInjection, out version);
 
                 if (opt.gameVersion)
                 {
                     SayGameVersion(version);
                     return RC_Normal;
                 }
-
                 if (!string.IsNullOrEmpty(opt.requiredGameVersion))
                 {
                     if (opt.requiredGameVersion != version)
@@ -203,7 +175,6 @@ namespace BattleTechModLoader
                     {
                         SayAlreadyRestored();
                     }
-
                     PromptForKey(opt.requireKeyPress);
                     return RC_Normal;
                 }
@@ -212,7 +183,7 @@ namespace BattleTechModLoader
                 {
                     if (injected)
                     {
-                        bool yes = PromptForUpdateYesNo(opt.requireKeyPress);
+                        var yes = PromptForUpdateYesNo(opt.requireKeyPress);
                         if (yes)
                         {
                             Restore(gameDllPath, gameDllBackupPath);
@@ -239,7 +210,6 @@ namespace BattleTechModLoader
                     {
                         SayAlreadyInjected(isCurrentInjection);
                     }
-
                     PromptForKey(opt.requireKeyPress);
                     return RC_Normal;
                 }
@@ -287,12 +257,10 @@ namespace BattleTechModLoader
             {
                 throw new BackupFileNotFound();
             }
-
             if (IsInjected(backupFilePath))
             {
                 throw new BackupFileInjected();
             }
-
             File.Copy(backupFilePath, filePath, true);
             WriteLine($"{Path.GetFileName(backupFilePath)} restored to {Path.GetFileName(filePath)}");
         }
@@ -303,35 +271,21 @@ namespace BattleTechModLoader
             string newDirectory = Path.GetDirectoryName(hookFilePath);
             Directory.SetCurrentDirectory(newDirectory);
             WriteLine($"Injecting {Path.GetFileName(hookFilePath)} with {InjectType}.{InjectMethod} at {HookType}.{HookMethod}");
-            bool success = true;
-
-            ModuleDefinition game = ModuleDefinition.ReadModule(hookFilePath, new ReaderParameters() { ReadWrite = true });
-            try
+            var success = true;
+            using (var game = ModuleDefinition.ReadModule(hookFilePath, new ReaderParameters { ReadWrite = true }))
+            using (var injecting = ModuleDefinition.ReadModule(injectFilePath))
             {
-                ModuleDefinition injecting = ModuleDefinition.ReadModule(injectFilePath);
-                try
-                {
-                    success = InjectModHookPoint(game, injecting);
+                success = InjectModHookPoint(game, injecting);
 #if RTML
                 if (success) success = InjectNewFactions(game);
 #endif
-                    if (success) success = WriteNewAssembly(hookFilePath, game);
-                }
-                finally
-                {
-                    injecting?.Dispose();
-                }
-            }
-            finally
-            {
-                game?.Dispose();
-            }
 
+                if (success) success = WriteNewAssembly(hookFilePath, game);
+            }
             if (!success)
             {
                 WriteLine("Failed to inject the game assembly.");
             }
-
             Directory.SetCurrentDirectory(oldDirectory);
         }
 
@@ -347,39 +301,14 @@ namespace BattleTechModLoader
         private static bool InjectModHookPoint(ModuleDefinition game, ModuleDefinition injecting)
         {
             // get the methods that we're hooking and injecting
-            MethodDefinition injectedMethod = null;
-            foreach (var methodDefinition in injecting.GetType(InjectType).Methods)
-            {
-                if (methodDefinition.Name != InjectMethod) continue;
-                injectedMethod = methodDefinition;
-                break;
-            }
-
-            MethodDefinition hookedMethod = null;
-            foreach (var methodDefinition in injecting.GetType(HookType).Methods)
-            {
-                if (methodDefinition.Name != HookMethod) continue;
-                injectedMethod = methodDefinition;
-                break;
-            }
+            var injectedMethod = injecting.GetType(InjectType).Methods.Single(x => x.Name == InjectMethod);
+            var hookedMethod = game.GetType(HookType).Methods.First(x => x.Name == HookMethod);
 
             // If the return type is an iterator -- need to go searching for its MoveNext method which contains the actual code you'll want to inject
             if (hookedMethod.ReturnType.Name.Equals("IEnumerator"))
             {
-                TypeDefinition nestedIterator = null;
-                foreach (var typeDefinition in game.GetType(HookType).NestedTypes)
-                {
-                    if (!typeDefinition.Name.Contains(HookMethod) && !typeDefinition.Name.Contains("Iterator")) continue;
-                    nestedIterator = typeDefinition;
-                    break;
-                }
-
-                foreach (var nestedIteratorMethod in nestedIterator.Methods)
-                {
-                    if (nestedIteratorMethod.Name != "MoveNext") continue;
-                    hookedMethod = nestedIteratorMethod;
-                    break;
-                }
+                var nestedIterator = game.GetType(HookType).NestedTypes.First(x => x.Name.Contains(HookMethod) && x.Name.Contains("Iterator"));
+                hookedMethod = nestedIterator.Methods.First(x => x.Name.Equals("MoveNext"));
             }
 
             // As of BattleTech v1.1 the Start() iterator method of BattleTech.Main has this at the end
@@ -400,7 +329,7 @@ namespace BattleTechModLoader
                 var instruction = hookedMethod.Body.Instructions[i];
                 if (instruction.OpCode.Code.Equals(Code.Call) && instruction.OpCode.OperandType.Equals(OperandType.InlineMethod))
                 {
-                    MethodReference methodReference = (MethodReference) instruction.Operand;
+                    MethodReference methodReference = (MethodReference)instruction.Operand;
                     if (methodReference.Name.Contains("PrepareSerializer"))
                     {
                         targetInstruction = i;
@@ -426,11 +355,11 @@ namespace BattleTechModLoader
                 Mono.Cecil.FieldAttributes.Static |
                 Mono.Cecil.FieldAttributes.Literal |
                 Mono.Cecil.FieldAttributes.HasDefault;
-            List<FactionStub> factions = ReadFactions();
-            TypeDefinition factionBase = game.GetType("BattleTech.Faction");
-            foreach (FactionStub faction in factions)
+            var factions = ReadFactions();
+            var factionBase = game.GetType("BattleTech.Faction");
+            foreach (var faction in factions)
             {
-                FieldDefinition newField = new FieldDefinition(faction.Name, enumAttributes, factionBase) { Constant = faction.Id };
+                var newField = new FieldDefinition(faction.Name, enumAttributes, factionBase) { Constant = faction.Id };
                 factionBase.Fields.Add(newField);
             }
             WriteLine($"Injected {factions.Count} factions.");
@@ -439,21 +368,21 @@ namespace BattleTechModLoader
 
         private static List<FactionStub> ReadFactions()
         {
-            string directory = Directory.GetCurrentDirectory();
-            string factionPath = Path.Combine(directory, FactionsFileName);
+            var directory = Directory.GetCurrentDirectory();
+            var factionPath = Path.Combine(directory, FactionsFileName);
             var factionDefinition = new { Faction = "" };
-            List<FactionStub> factions = new List<FactionStub>();
-            int id = EnumStartingId;
-            using (ZipArchive archive = ZipFile.OpenRead(factionPath))
+            var factions = new List<FactionStub>();
+            var id = EnumStartingId;
+            using (var archive = ZipFile.Read(factionPath))
             {
-                foreach (ZipArchiveEntry entry in archive.Entries)
+                foreach (var entry in archive)
                 {
-                    if (entry.FullName.StartsWith("faction_", StringComparison.OrdinalIgnoreCase) &&
-                        entry.FullName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                    if (entry.FileName.StartsWith("faction_", StringComparison.OrdinalIgnoreCase) &&
+                        entry.FileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
                     {
-                        using (StreamReader reader = new StreamReader(entry.Open()))
+                        using (var reader = new StreamReader(entry.OpenReader()))
                         {
-                            string raw = reader.ReadToEnd();
+                            var raw = reader.ReadToEnd();
                             var faction = JsonConvert.DeserializeAnonymousType(raw, factionDefinition);
                             factions.Add(new FactionStub() { Name = faction.Faction, Id = id });
                             id++;
@@ -461,6 +390,7 @@ namespace BattleTechModLoader
                     }
                 }
             }
+
             return factions;
         }
 
@@ -475,15 +405,12 @@ namespace BattleTechModLoader
         {
             return IsInjected(dllPath, out _, out _);
         }
-
         private static bool IsInjected(string dllPath, out bool isCurrentInjection, out string gameVersion)
         {
             isCurrentInjection = false;
             gameVersion = "";
-            bool detectedInject = false;
-
-            ModuleDefinition dll = ModuleDefinition.ReadModule(dllPath);
-            try
+            var detectedInject = false;
+            using (var dll = ModuleDefinition.ReadModule(dllPath))
             {
                 foreach (TypeDefinition type in dll.Types)
                 {
@@ -507,30 +434,14 @@ namespace BattleTechModLoader
                             }
                         }
                     }
-
                     if (type.FullName == GameVersionType)
                     {
-                        FieldDefinition fieldInfo = null;
-                        foreach (var fieldDefinition in type.Fields)
-                        {
-                            if (!fieldDefinition.IsLiteral || fieldDefinition.IsInitOnly || fieldDefinition.Name != GameVersionConst) continue;
-                            fieldInfo = fieldDefinition;
-                            break;
-                        }
-
-                        //var fieldInfo = type.Fields.First(x => x.IsLiteral && !x.IsInitOnly && x.Name == GameVersionConst);
+                        var fieldInfo = type.Fields.First(x => x.IsLiteral && !x.IsInitOnly && x.Name == GameVersionConst);
                         if (null != fieldInfo) gameVersion = fieldInfo.Constant.ToString();
                     }
-
                     if (detectedInject && !string.IsNullOrEmpty(gameVersion)) return detectedInject;
                 }
-
             }
-            finally
-            {
-                dll?.Dispose();
-            }
-
             return detectedInject;
         }
 
@@ -550,7 +461,6 @@ namespace BattleTechModLoader
                     return true;
                 }
             }
-
             return false;
         }
 
@@ -569,13 +479,11 @@ namespace BattleTechModLoader
         {
             WriteLine(version);
         }
-
         private static void SayRequiredGameVersion(string version, string expectedVersion)
         {
             WriteLine($"Expected BTG v{expectedVersion}");
             WriteLine($"Actual BTG v{version}");
         }
-
         private static void SayRequiredGameVersionMismatchMessage(string msg)
         {
             if (!string.IsNullOrEmpty(msg))
@@ -612,14 +520,14 @@ namespace BattleTechModLoader
         {
             SayHeader();
             WriteLine($"ERROR: We could not find the BTG assembly {GameDllFileName} in directory '{givenManagedDir}'.\n" +
-                "Are you sure that is the correct directory?");
+                      "Are you sure that is the correct directory?");
         }
 
         private static void SayModLoaderAssemblyMissingError(string expectedModLoaderAssemblyPath)
         {
             SayHeader();
             WriteLine($"ERROR: We could not find the BTG assembly {ModLoaderDllFileName} at '{expectedModLoaderAssemblyPath}'.\n" +
-                $"Is {ModLoaderDllFileName} in the correct place? It should be in the same directory as this injector executable.");
+                      $"Is {ModLoaderDllFileName} in the correct place? It should be in the same directory as this injector executable.");
         }
 
         private static void SayHeader()
@@ -678,7 +586,7 @@ namespace BattleTechModLoader
         {
             if (!requireKeyPress) return true;
             WriteLine("Would you like to update your assembly now? (y/n)");
-            ConsoleKeyInfo key = ReadKey();
+            var key = ReadKey();
             return (key.Key == ConsoleKey.Y);
         }
 
