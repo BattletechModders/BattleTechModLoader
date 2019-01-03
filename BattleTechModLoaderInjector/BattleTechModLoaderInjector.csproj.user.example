@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ReferencePath>/Users/joel/Library/Application Support/Steam/steamapps/common/BATTLETECH/BattleTech.app/Contents/Resources/Data/Managed/</ReferencePath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(RunConfiguration)' == 'Default' ">
+    <StartAction>Project</StartAction>
+    <StartArguments>/install</StartArguments>
+    <StartWorkingDirectory>..\..\..\..\Library\Application Support\Steam\steamapps\common\BATTLETECH\BattleTech.app\Contents\Resources\Data\Managed</StartWorkingDirectory>
+  </PropertyGroup>
+</Project>
