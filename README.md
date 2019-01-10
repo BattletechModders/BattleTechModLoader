@@ -4,7 +4,7 @@ A simple mod loader and injector for HBS's BattleTech PC game.
 
 ## Installing/Updating
 
-[A step-by-step guide to installing BTML + ModTek + ModTek mods.](https://github.com/janxious/ModTek/wiki/The-Drop-Dead-Simple-Guide-to-Installing-BTML-&-ModTek-&-ModTek-mods)
+[A step-by-step guide to installing BTML + ModTek + ModTek mods.](https://github.com/BattleTechModders/ModTek/wiki/The-Drop-Dead-Simple-Guide-to-Installing-BTML-&-ModTek-&-ModTek-mods)
 
 ### Windows
 Download the zip, and extract the entire contents (the `.exe` and all of the `.dll`s) into your `\BATTLETECH\BattleTech_Data\Managed\` folder. Run `BattleTechModLoaderInjector.exe`, it'll pop open a console window and run through the process of modifying `Assembly-CSharp.dll`, including making a backup into `Assembly-CSharp.dll.orig`. Don't worry if the assembly is slightly smaller than it started, it will still work, unless the console window shows an exception during the writing process. If this happens, just delete it and rename the backup to have your original file back.
@@ -28,9 +28,7 @@ Updates to BattleTechModLoader itself will almost certainly not require you to r
 
 ## Note For Modders
 
-Because of its extremely simple nature, you should be careful about basing your mod on BTML itself -- if you're developing a tool or mod that won't any need additional files (or advanced features, such as dependancies, load order, etc.), this might be a good fit.
-
-I'm currently working on another utility -- [ModTek](https://github.com/janxious/ModTek/tree/master/ModTek) that will provide a better all around experience for users and modders alike. It uses a `mod.json` file for each mod that defines its `.dll`, an entry point, dependancies, load-order, and facilitates importing/modifying additional files into the game. As of 5/5/2018, this mod is in ***Heavy*** developement, and won't be ready to go for a while yet. If you'd like to help out, jump into either BattleTech Discord ([1](https://discord.gg/ncTCh3k) or [2](https://discord.gg/fxXr8nV)) and ask around there or message me directly on [Reddit](https://www.reddit.com/user/Mpstark/).
+Because of its extremely simple nature, you should be careful about basing your mod on BTML itself -- if you're developing a tool or mod that won't any need additional files (or advanced features, such as dependancies, load order, etc.), this might be a good fit. [ModTek](https://github.com/BattleTechModders/ModTek/), which depends on BTML provides a better all around experience for users and modders alike. 
 
 ## How It Works
 
