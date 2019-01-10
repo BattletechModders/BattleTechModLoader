@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using Mono.Cecil;
@@ -8,9 +8,9 @@ using Mono.Options;
 namespace BattleTechModLoader
 {
 #if RTML
-    using System.IO.Compression;
     using System.Collections.Generic;
     using Newtonsoft.Json;
+    using Ionic.Zip;
 #endif
     using System.Diagnostics;
     using System.Reflection;
@@ -46,41 +46,41 @@ namespace BattleTechModLoader
 
         private static readonly ReceivedOptions opt = new ReceivedOptions();
         private static readonly OptionSet Options   = new OptionSet()
-                {
-                    { "d|detect",
-                        "Detect if the BTG assembly is already injected",
-                        v => opt.detecting = v != null },
-                    { "g|gameversion",
-                        "Print the BTG version number",
-                        v => opt.gameVersion = v != null },
-                    { "h|?|help",
-                        "Print this useful help message",
-                        v => opt.helping = v != null },
-                    { "i|install",
-                        "Install the Mod (this is the default behavior)",
-                        v => opt.installing = v != null },
-                    { "manageddir=",
-                        "specify managed dir where BTG's Assembly-CSharp.dll is located",
-                        v => opt.managedDir = v},
-                    { "y|nokeypress",
-                        "Anwser prompts affirmatively",
-                        v => opt.requireKeyPress = v == null },
-                    { "reqmismatchmsg=",
-                        "Print msg if required version check fails",
-                        v => opt.requiredGameVersionMismatchMessage = v },
-                    { "requiredversion=",
-                        "Don't continue with /install, /update, etc. if the BTG game version does not match given argument",
-                        v => opt.requiredGameVersion = v },
-                    { "r|restore",
-                        "Restore pristine backup BTG assembly to folder",
-                        v => opt.restoring = v != null },
-                    { "u|update",
-                        "Update mod loader injection of BTG assembly to current BTML version",
-                        v => opt.updating = v != null },
-                    { "v|version",
-                        "Print the BattleTechModInjector version number",
-                        v => opt.versioning = v != null },
-                };
+        {
+            { "d|detect",
+                "Detect if the BTG assembly is already injected",
+                v => opt.detecting = v != null },
+            { "g|gameversion",
+                "Print the BTG version number",
+                v => opt.gameVersion = v != null },
+            { "h|?|help",
+                "Print this useful help message",
+                v => opt.helping = v != null },
+            { "i|install",
+                "Install the Mod (this is the default behavior)",
+                v => opt.installing = v != null },
+            { "manageddir=",
+                "specify managed dir where BTG's Assembly-CSharp.dll is located",
+                v => opt.managedDir = v},
+            { "y|nokeypress",
+                "Anwser prompts affirmatively",
+                v => opt.requireKeyPress = v == null },
+            { "reqmismatchmsg=",
+                "Print msg if required version check fails",
+                v => opt.requiredGameVersionMismatchMessage = v },
+            { "requiredversion=",
+                "Don't continue with /install, /update, etc. if the BTG game version does not match given argument",
+                v => opt.requiredGameVersion = v },
+            { "r|restore",
+                "Restore pristine backup BTG assembly to folder",
+                v => opt.restoring = v != null },
+            { "u|update",
+                "Update mod loader injection of BTG assembly to current BTML version",
+                v => opt.updating = v != null },
+            { "v|version",
+                "Print the BattleTechModInjector version number",
+                v => opt.versioning = v != null },
+        };
 
         private static int Main(string[] args)
         {
@@ -373,14 +373,14 @@ namespace BattleTechModLoader
             var factionDefinition = new { Faction = "" };
             var factions = new List<FactionStub>();
             var id = EnumStartingId;
-            using (ZipArchive archive = ZipFile.OpenRead(factionPath))
+            using (var archive = ZipFile.Read(factionPath))
             {
-                foreach (ZipArchiveEntry entry in archive.Entries)
+                foreach (var entry in archive)
                 {
-                    if (entry.FullName.StartsWith("faction_", StringComparison.OrdinalIgnoreCase) &&
-                        entry.FullName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                    if (entry.FileName.StartsWith("faction_", StringComparison.OrdinalIgnoreCase) &&
+                        entry.FileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
                     {
-                        using (StreamReader reader = new StreamReader(entry.Open()))
+                        using (var reader = new StreamReader(entry.OpenReader()))
                         {
                             var raw = reader.ReadToEnd();
                             var faction = JsonConvert.DeserializeAnonymousType(raw, factionDefinition);
@@ -390,6 +390,7 @@ namespace BattleTechModLoader
                     }
                 }
             }
+
             return factions;
         }
 
