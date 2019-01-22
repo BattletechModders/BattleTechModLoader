@@ -25,7 +25,7 @@ namespace BattleTechModLoader
 
         public static string ModDirectory { get; private set; }
 
-        public static void LoadDLL(string path, string methodName = "Init", string typeName = null,
+        public static Assembly LoadDLL(string path, string methodName = "Init", string typeName = null,
             object[] prms = null, BindingFlags bFlags = PUBLIC_STATIC_BINDING_FLAGS)
         {
             var fileName = Path.GetFileName(path);
@@ -51,7 +51,7 @@ namespace BattleTechModLoader
                 if (types.Count == 0)
                 {
                     LogWithDate($"{fileName} (v{version}): Failed to find specified entry point: {typeName ?? "NotSpecified"}.{methodName}");
-                    return;
+                    return null;
                 }
 
                 // run each entry point
@@ -114,10 +114,13 @@ namespace BattleTechModLoader
                         }
                     }
                 }
+
+                return assembly;
             }
             catch (Exception e)
             {
                 LogWithDate($"{fileName}: While loading a dll, an exception occured:\n{e}");
+                return null;
             }
         }
 
