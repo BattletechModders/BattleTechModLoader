@@ -1,5 +1,4 @@
-using System;
-namespace BattleTechModLoader
+namespace BattleTechModLoaderInjector
 {
     /***
      * A container for the values passed by the user into the program via command line.
@@ -7,16 +6,16 @@ namespace BattleTechModLoader
      */
     internal class ReceivedOptions
     {
-        public bool requireKeyPress = true;
-        public bool detecting = false;
-        public string requiredGameVersion = String.Empty;
-        public string requiredGameVersionMismatchMessage = String.Empty;
-        public string managedDir = String.Empty;
-        public bool gameVersion = false;
-        public bool helping = false;
-        public bool installing = true;
-        public bool restoring = false;
-        public bool updating = false;
-        public bool versioning = false;
+        public bool RequireKeyPress = true;
+        public bool Detecting = false;
+        public string RequiredGameVersion = string.Empty;
+        public string RequiredGameVersionMismatchMessage = string.Empty;
+        public string ManagedDir = string.Empty;
+        public bool GameVersion = false;
+        public bool Helping = false;
+        public bool Installing = true;
+        public bool Restoring = false;
+        public bool Updating = false;
+        public bool Versioning = false;
     }
 }

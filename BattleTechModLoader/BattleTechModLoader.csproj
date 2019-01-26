@@ -19,7 +19,8 @@
     <DebugType>none</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants></DefineConstants>
+    <DefineConstants>
+    </DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <LangVersion>Default</LangVersion>
@@ -40,26 +41,62 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
-    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Runtime.Serialization">
+      <Private>False</Private>
+    </Reference>
     <Reference Include="System.Security" />
     <Reference Include="System.Xml" />
-    <Reference Include="0Harmony" />
-    <Reference Include="BattleTech.Common" />
-    <Reference Include="Google.Protobuf.Unity" />
-    <Reference Include="Ionic.Zip" />
-    <Reference Include="Mono.Data.Sqlite" />
-    <Reference Include="Mono.Security" />
-    <Reference Include="Newtonsoft.Json" />
-    <Reference Include="NGettext" />
-    <Reference Include="protobuf-net" />
-    <Reference Include="ServiceStack.Interfaces" />
-    <Reference Include="ShadowrunDTO" />
-    <Reference Include="ShadowrunSerializer" />
-    <Reference Include="Sigil" />
-    <Reference Include="UnityEngine" />
-    <Reference Include="UnityEngine.UI" />
-    <Reference Include="Assembly-CSharp-firstpass" />
-    <Reference Include="Assembly-CSharp" />
+    <Reference Include="0Harmony">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="BattleTech.Common">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Google.Protobuf.Unity">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Ionic.Zip">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Mono.Data.Sqlite">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Mono.Security">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="NGettext">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="protobuf-net">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="ServiceStack.Interfaces">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="ShadowrunDTO">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="ShadowrunSerializer">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Sigil">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BTModLoader.cs" />
