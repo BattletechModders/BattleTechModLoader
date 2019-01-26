@@ -285,9 +285,9 @@ namespace BattleTechModLoaderInjector
                 var success = InjectModHookPoint(game, injecting);
 #if RTML
                 // TODO: remove RTML #if here
-                success |= InjectNewFactions(game);
+                success &= InjectNewFactions(game);
 #endif
-                success |= WriteNewAssembly(hookFilePath, game);
+                success &= WriteNewAssembly(hookFilePath, game);
 
                 if (!success)
                     WriteLine("Failed to inject the game assembly.");
