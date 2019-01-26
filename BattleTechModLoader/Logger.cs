@@ -6,8 +6,16 @@ namespace BattleTechModLoader
 {
     internal static class Logger
     {
-        // logging
         internal static string LogPath { get; set; }
+
+        internal static void LogException(string message, Exception e)
+        {
+            using (var logWriter = File.AppendText(LogPath))
+            {
+                logWriter.WriteLine(message);
+                logWriter.WriteLine(e.ToString());
+            }
+        }
 
         [StringFormatMethod("message")]
         internal static void Log(string message, params object[] formatObjects)

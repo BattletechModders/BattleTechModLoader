@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -26,17 +25,26 @@ namespace BattleTechModLoader
         public static string ModDirectory { get; private set; }
 
         public static Assembly LoadDLL(string path, string methodName = "Init", string typeName = null,
-            object[] prms = null, BindingFlags bFlags = PUBLIC_STATIC_BINDING_FLAGS)
+            object[] parameters = null, BindingFlags bFlags = PUBLIC_STATIC_BINDING_FLAGS)
         {
             var fileName = Path.GetFileName(path);
 
+            if (!File.Exists(path))
+            {
+                LogWithDate($"Failed to load {fileName} at path {path}, because it doesn't exist at that path.");
+                return null;
+            }
+
             try
             {
-
                 var assembly = Assembly.LoadFrom(path);
                 var name = assembly.GetName();
                 var version = name.Version;
                 var types = new List<Type>();
+
+                // if methodName is null, don't try to run an entry point
+                if (methodName == null)
+                    return assembly;
 
                 // find the type/s with our entry point/s
                 if (typeName == null)
@@ -67,51 +75,37 @@ namespace BattleTechModLoader
                     {
                         LogWithDate($"{fileName} (v{version}): Found and called entry point \"{entryMethod}\" in type \"{type.FullName}\"");
                         entryMethod.Invoke(null, null);
+                        continue;
+                    }
+
+                    // match up the passed in params with the method's params, if they match, call the method
+                    if (parameters != null && methodParams.Length == parameters.Length
+                        && !methodParams.Where((info, i) => parameters[i]?.GetType() != info.ParameterType).Any())
+                    {
+                        LogWithDate($"{fileName} (v{version}): Found and called entry point \"{entryMethod}\" in type \"{type.FullName}\"");
+                        entryMethod.Invoke(null, parameters);
+                        continue;
+                    }
+
+                    // failed to call entry method of parameter mismatch
+                    // diagnosing problems of this type is pretty hard
+                    LogWithDate($"{fileName} (v{version}): Provided params don't match {type.Name}.{entryMethod.Name}");
+                    Log("\tPassed in Params:");
+                    if (parameters != null)
+                    {
+                        foreach (var parameter in parameters)
+                            Log($"\t\t{parameter.GetType()}");
                     }
                     else
                     {
-                        // match up the passed in params with the method's params, if they match, call the method
-                        if (prms != null && methodParams.Length == prms.Length)
-                        {
-                            var paramsMatch = true;
-                            for (var i = 0; i < methodParams.Length; i++)
-                            {
-                                if (prms[i] != null && prms[i].GetType() != methodParams[i].ParameterType)
-                                {
-                                    paramsMatch = false;
-                                }
-                            }
+                        Log("\t\t'parameters' is null");
+                    }
 
-                            if (paramsMatch)
-                            {
-                                LogWithDate($"{fileName} (v{version}): Found and called entry point \"{entryMethod}\" in type \"{type.FullName}\"");
-                                entryMethod.Invoke(null, prms);
-                                continue;
-                            }
-                        }
-
-                        // diagnosing problems of this type (haha it's a pun) is pretty hard
-                        LogWithDate($"{fileName} (v{version}): Provided params don't match {type.Name}.{entryMethod.Name}");
-                        Log("\tPassed in Params:");
-                        if (prms != null)
-                        {
-                            foreach (var prm in prms)
-                            {
-                                Log($"\t\t{prm.GetType()}");
-                            }
-                        }
-                        else
-                        {
-                            Log("\t\t'prms' is null");
-                        }
-
-                        if (methodParams.Length == 0) continue;
-
+                    if (methodParams.Length != 0)
+                    {
                         Log("\tMethod Params:");
                         foreach (var prm in methodParams)
-                        {
                             Log($"\t\t{prm.ParameterType}");
-                        }
                     }
                 }
 
@@ -119,7 +113,7 @@ namespace BattleTechModLoader
             }
             catch (Exception e)
             {
-                LogWithDate($"{fileName}: While loading a dll, an exception occured:\n{e}");
+                LogException($"{fileName}: While loading a dll, an exception occured", e);
                 return null;
             }
         }
@@ -138,14 +132,10 @@ namespace BattleTechModLoader
 
             var btmlVersion = Assembly.GetExecutingAssembly().GetName().Version;
 
-            // do some simple benchmarking
-            var sw = new Stopwatch();
-            sw.Start();
-
             if (!Directory.Exists(ModDirectory))
                 Directory.CreateDirectory(ModDirectory);
 
-            // create log file, overwritting if it's already there
+            // create log file, overwriting if it's already there
             using (var logWriter = File.CreateText(LogPath))
             {
                 logWriter.WriteLine($"BTModLoader -- BTML v{btmlVersion} -- {DateTime.Now}");
@@ -159,20 +149,16 @@ namespace BattleTechModLoader
 
             if (dllPaths.Length == 0)
             {
-                Log(@"No .dlls loaded. DLLs must be placed in the root of the folder \BATTLETECH\Mods\.");
+                Log(@"No .DLLs loaded. DLLs must be placed in the root of the folder \BATTLETECH\Mods\.");
                 return;
             }
 
-            // load the dlls
+            // load the DLLs
             foreach (var dllPath in dllPaths)
             {
                 if (!IGNORE_FILE_NAMES.Contains(Path.GetFileName(dllPath)))
                     LoadDLL(dllPath);
             }
-
-            // do some simple benchmarking
-            sw.Stop();
-            Log($"\nTook {sw.Elapsed.TotalSeconds} seconds to load mods\n");
         }
     }
 }
