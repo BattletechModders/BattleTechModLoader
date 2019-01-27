@@ -1,24 +1,22 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Ionic.Zip;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Options;
-using static System.Console;
-#if RTML
-using System.Collections.Generic;
-using Ionic.Zip;
 using Newtonsoft.Json;
+using static System.Console;
 using FieldAttributes = Mono.Cecil.FieldAttributes;
-#endif
 
 namespace BattleTechModLoaderInjector
 {
     internal static class BTMLInjector
     {
-        // return Codes
+        // return codes
         private const int RC_NORMAL = 0;
         private const int RC_UNHANDLED_STATE = 1;
         private const int RC_BAD_OPTIONS = 2;
@@ -27,6 +25,7 @@ namespace BattleTechModLoaderInjector
         private const int RC_BAD_MANAGED_DIRECTORY_PROVIDED = 5;
         private const int RC_MISSING_MOD_LOADER_ASSEMBLY = 6;
         private const int RC_REQUIRED_GAME_VERSION_MISMATCH = 7;
+        private const int RC_MISSING_FACTION_FILE = 8;
 
         private const string MOD_LOADER_DLL_FILE_NAME = "BattleTechModLoader.dll";
         private const string GAME_DLL_FILE_NAME = "Assembly-CSharp.dll";
@@ -39,6 +38,10 @@ namespace BattleTechModLoaderInjector
 
         private const string GAME_VERSION_TYPE = "VersionInfo";
         private const string GAME_VERSION_CONST = "CURRENT_VERSION_NUMBER";
+
+        private const int FACTION_ENUM_STARTING_ID = 5000;
+        private const FieldAttributes ENUM_ATTRIBUTES = FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal | FieldAttributes.HasDefault;
+
 
         // ReSharper disable once InconsistentNaming
         private static readonly ReceivedOptions OptionsIn = new ReceivedOptions();
@@ -100,6 +103,11 @@ namespace BattleTechModLoaderInjector
                 "v|version",
                 "Print the BattleTechModInjector version number",
                 v => OptionsIn.Versioning = v != null
+            },
+            {
+                "factionsPath=",
+                "Specify a zip file with factions to inject",
+                v => OptionsIn.FactionsPath = v
             }
         };
 
@@ -129,7 +137,7 @@ namespace BattleTechModLoaderInjector
                     return RC_NORMAL;
                 }
 
-                var directory = Directory.GetCurrentDirectory();
+                var managedDirectory = Directory.GetCurrentDirectory();
                 if (!string.IsNullOrEmpty(OptionsIn.ManagedDir))
                 {
                     if (!Directory.Exists(OptionsIn.ManagedDir))
@@ -138,12 +146,12 @@ namespace BattleTechModLoaderInjector
                         return RC_BAD_MANAGED_DIRECTORY_PROVIDED;
                     }
 
-                    directory = Path.GetFullPath(OptionsIn.ManagedDir);
+                    managedDirectory = Path.GetFullPath(OptionsIn.ManagedDir);
                 }
 
-                var gameDllPath = Path.Combine(directory, GAME_DLL_FILE_NAME);
-                var gameDllBackupPath = Path.Combine(directory, GAME_DLL_FILE_NAME + BACKUP_FILE_EXT);
-                var modLoaderDllPath = Path.Combine(directory, MOD_LOADER_DLL_FILE_NAME);
+                var gameDllPath = Path.Combine(managedDirectory, GAME_DLL_FILE_NAME);
+                var gameDllBackupPath = Path.Combine(managedDirectory, GAME_DLL_FILE_NAME + BACKUP_FILE_EXT);
+                var modLoaderDllPath = Path.Combine(managedDirectory, MOD_LOADER_DLL_FILE_NAME);
 
                 if (!File.Exists(gameDllPath))
                 {
@@ -155,6 +163,20 @@ namespace BattleTechModLoaderInjector
                 {
                     SayModLoaderAssemblyMissingError(modLoaderDllPath);
                     return RC_MISSING_MOD_LOADER_ASSEMBLY;
+                }
+
+                var factionsPath = "";
+                if (!string.IsNullOrEmpty(OptionsIn.FactionsPath))
+                {
+                    factionsPath = OptionsIn.FactionsPath;
+                    if (!Path.IsPathRooted(factionsPath))
+                        factionsPath = Path.Combine(managedDirectory, factionsPath);
+
+                    if (!File.Exists(factionsPath))
+                    {
+                        SayFactionsFileMissing(factionsPath);
+                        return RC_MISSING_FACTION_FILE;
+                    }
                 }
 
                 var injected = IsInjected(gameDllPath, out var isCurrentInjection, out var gameVersion);
@@ -200,7 +222,7 @@ namespace BattleTechModLoaderInjector
                         if (PromptForUpdateYesNo(OptionsIn.RequireKeyPress))
                         {
                             Restore(gameDllPath, gameDllBackupPath);
-                            Inject(gameDllPath, modLoaderDllPath);
+                            Inject(gameDllPath, modLoaderDllPath, factionsPath);
                         }
                         else
                         {
@@ -217,7 +239,7 @@ namespace BattleTechModLoaderInjector
                     if (!injected)
                     {
                         Backup(gameDllPath, gameDllBackupPath);
-                        Inject(gameDllPath, modLoaderDllPath);
+                        Inject(gameDllPath, modLoaderDllPath, factionsPath);
                     }
                     else
                     {
@@ -271,29 +293,23 @@ namespace BattleTechModLoaderInjector
             WriteLine($"{Path.GetFileName(backupFilePath)} restored to {Path.GetFileName(filePath)}");
         }
 
-        private static void Inject(string hookFilePath, string injectFilePath)
+        private static void Inject(string hookFilePath, string injectFilePath, string factionsFilePath)
         {
-            var oldDirectory = Directory.GetCurrentDirectory();
-            var newDirectory = Path.GetDirectoryName(hookFilePath);
-            Directory.SetCurrentDirectory(newDirectory ?? throw new InvalidOperationException());
-
             WriteLine($"Injecting {Path.GetFileName(hookFilePath)} with {INJECT_TYPE}.{INJECT_METHOD} at {HOOK_TYPE}.{HOOK_METHOD}");
 
             using (var game = ModuleDefinition.ReadModule(hookFilePath, new ReaderParameters { ReadWrite = true }))
             using (var injecting = ModuleDefinition.ReadModule(injectFilePath))
             {
                 var success = InjectModHookPoint(game, injecting);
-#if RTML
-                // TODO: remove RTML #if here
-                success &= InjectNewFactions(game);
-#endif
+
+                if (!string.IsNullOrEmpty(factionsFilePath))
+                    success &= InjectNewFactions(game, factionsFilePath);
+
                 success &= WriteNewAssembly(hookFilePath, game);
 
                 if (!success)
                     WriteLine("Failed to inject the game assembly.");
             }
-
-            Directory.SetCurrentDirectory(oldDirectory);
         }
 
         private static bool WriteNewAssembly(string hookFilePath, ModuleDefinition game)
@@ -487,6 +503,12 @@ namespace BattleTechModLoaderInjector
                 $"Is {MOD_LOADER_DLL_FILE_NAME} in the correct place? It should be in the same directory as this injector executable.");
         }
 
+        private static void SayFactionsFileMissing(string factionsFilePath)
+        {
+            SayHeader();
+            WriteLine($"ERROR: We could not find the provided factions zip at '{factionsFilePath}'");
+        }
+
         private static void SayHeader()
         {
             WriteLine("BattleTechModLoader Injector");
@@ -547,16 +569,11 @@ namespace BattleTechModLoaderInjector
             ReadKey();
         }
 
-#if RTML
-        private const string FACTIONS_FILE_NAME = "rt-factions.zip";
-        private const int ENUM_STARTING_ID = 5000;
-        private const FieldAttributes ENUM_ATTRIBUTES = FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal | FieldAttributes.HasDefault;
-
-        private static bool InjectNewFactions(ModuleDefinition game)
+        private static bool InjectNewFactions(ModuleDefinition game, string path)
         {
             Write("Injecting factions... ");
 
-            var factions = ReadFactions();
+            var factions = ReadFactions(path);
             var factionBase = game.GetType("BattleTech.Faction");
 
             foreach (var faction in factions)
@@ -566,15 +583,13 @@ namespace BattleTechModLoaderInjector
             return true;
         }
 
-        private static List<FactionStub> ReadFactions()
+        private static List<FactionStub> ReadFactions(string path)
         {
-            var directory = Directory.GetCurrentDirectory();
-            var factionPath = Path.Combine(directory, FACTIONS_FILE_NAME);
             var factionDefinition = new { Faction = "" };
             var factions = new List<FactionStub>();
-            var id = ENUM_STARTING_ID;
+            var id = FACTION_ENUM_STARTING_ID;
 
-            using (var archive = ZipFile.Read(factionPath))
+            using (var archive = ZipFile.Read(path))
             {
                 foreach (var entry in archive)
                 {
@@ -584,8 +599,7 @@ namespace BattleTechModLoaderInjector
 
                     using (var reader = new StreamReader(entry.OpenReader()))
                     {
-                        var raw = reader.ReadToEnd();
-                        var faction = JsonConvert.DeserializeAnonymousType(raw, factionDefinition);
+                        var faction = JsonConvert.DeserializeAnonymousType(reader.ReadToEnd(), factionDefinition);
                         factions.Add(new FactionStub { Name = faction.Faction, Id = id });
                         id++;
                     }
@@ -600,7 +614,6 @@ namespace BattleTechModLoaderInjector
             public string Name;
             public int Id;
         }
-#endif
     }
 
     public class BackupFileInjected : Exception
