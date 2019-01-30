@@ -17,5 +17,6 @@ namespace BattleTechModLoaderInjector
         public bool Restoring = false;
         public bool Updating = false;
         public bool Versioning = false;
+        public string FactionsPath = string.Empty;
     }
 }
