@@ -1,3 +1,5 @@
+***EDIT:** For BattleTech 1.4+, use [ModTek 0.6.0+](https://github.com/BattletechModders/ModTek/releases), which integrates and improves BTML.*
+
 # BattleTechModLoader
 
 A simple mod loader and injector for HBS's BattleTech PC game.
